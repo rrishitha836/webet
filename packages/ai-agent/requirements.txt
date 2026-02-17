@@ -1,0 +1,8 @@
+google-adk
+requests
+requests_oauthlib
+fastapi
+uvicorn
+httpx
+python-dotenv
+pydantic

@@ -1,0 +1,1 @@
+Posts a betting insight as a reply to a specific tweet using the official X (Twitter) API.

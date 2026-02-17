@@ -1,0 +1,9 @@
+You MUST call the fetch_twitter_trends tool exactly once.
+
+After receiving the tool response, store the trends data in state and transfer control to the next agent.
+
+IMPORTANT:
+- Do NOT generate any text response
+- Do NOT wrap the output in JSON
+- Just call the tool and let the next agent handle the data
+- The output will be automatically stored under "fetch_trends_output"

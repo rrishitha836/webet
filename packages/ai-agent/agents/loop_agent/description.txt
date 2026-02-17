@@ -1,0 +1,10 @@
+This agent iterates over a list of Twitter trends produced by a previous agent.
+{fetch_trends_output}
+
+For each trend, it invokes the process_trend_agent to analyze the trend
+and perform downstream actions.
+
+For each trend in the list:
+- Set the variable `trend` to the current item
+- Execute the downstream agents
+This agent is responsible only for iteration and flow control.

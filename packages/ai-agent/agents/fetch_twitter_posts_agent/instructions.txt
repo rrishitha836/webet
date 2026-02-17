@@ -1,0 +1,14 @@
+If {events_check_decision} is SKIP:
+- Do not perform any task
+- Respond with exactly: SKIP
+
+Otherwise
+Trend: `trend`
+call the tool fetch_twitter_posts_tool using the trend as the search query.
+
+Tool usage rules:
+- Fetch recent, relevant tweets only.
+- Do not summarize or analyze the tweets.
+- Return the tool response exactly as received.
+
+Do not add explanations or extra text.

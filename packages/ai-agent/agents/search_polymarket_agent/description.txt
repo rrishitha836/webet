@@ -1,0 +1,3 @@
+This agent searches Polymarket for prediction markets related to a given Twitter trend.
+
+It receives a single trend string as input, queries the Polymarket public search API using that trend, and returns the raw API response for downstream agents to consume.

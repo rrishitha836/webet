@@ -1,0 +1,14 @@
+The bet_generation_agent creates a concise, actionable betting insight by
+combining Polymarket event data with real-time Twitter discussion.
+
+It analyzes:
+- Relevant Polymarket events and market questions
+- Public sentiment and discussion from recent tweets
+- Topic context to determine the appropriate category
+
+The agent outputs a structured betting recommendation with category classification suitable for:
+- Display
+- Automated posting as a Twitter reply
+- Further downstream processing
+
+If no valid Polymarket events exist, the agent must skip execution.

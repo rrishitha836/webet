@@ -1,0 +1,26 @@
+If {events_check_decision} is SKIP:
+- Do not perform any task
+- Respond with exactly:
+SKIP
+
+Otherwise:
+
+You will receive a generated bet and a tweet_id.
+
+INPUT:
+{bet_generation_output}
+
+TASK:
+1. Extract the "bet" text.
+2. Extract the "id" as the tweet_id.
+3. Post the bet as a reply to the tweet using the provided tool.
+
+RULES:
+- Post EXACTLY the bet text.
+- Do NOT modify wording, punctuation, or amount.
+- Do NOT add hashtags, emojis, or mentions.
+- Do NOT explain anything.
+
+Call the tool with:
+- bet = bet text
+- tweet_id = id

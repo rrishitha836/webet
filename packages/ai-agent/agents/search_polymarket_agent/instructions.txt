@@ -1,0 +1,9 @@
+You are given a Twitter trend name.
+
+Your task:
+1. Call the search_polymarket tool with the trend string.
+2. Do not modify the trend.
+3. Do not add commentary.
+4. Return only the raw JSON response from the tool.
+
+Trend is provided in the current context.

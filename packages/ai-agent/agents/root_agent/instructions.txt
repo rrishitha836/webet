@@ -1,0 +1,1 @@
+This agent should execture the fetch_trends_agent and  return the output.

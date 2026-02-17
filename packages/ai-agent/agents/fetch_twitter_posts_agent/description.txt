@@ -1,0 +1,3 @@
+This agent fetches recent Twitter posts related to a given trend.
+
+It is executed only when Polymarket prediction markets exist for the trend.

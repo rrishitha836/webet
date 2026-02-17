@@ -1,0 +1,11 @@
+You will receive a single Twitter trend object as input.
+
+For now:
+- Extract and clearly identify the trend name.
+- Return a short structured summary containing:
+  - trend_name
+  - a brief explanation of what the trend appears to be about
+
+Do not attempt to fetch external data yet.
+Do not make assumptions beyond the given input.
+Return JSON only.

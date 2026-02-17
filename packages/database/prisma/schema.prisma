@@ -1,0 +1,321 @@
+// WeBet Social - Play-Money Social Betting Platform
+// Schema based on PRD v1.0 - February 2026
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum BetStatus {
+  DRAFT
+  OPEN
+  PAUSED
+  CLOSED
+  RESOLVED
+  CANCELLED
+}
+
+enum BetSource {
+  AI_GENERATED
+  MANUAL
+}
+
+enum BetCategory {
+  SPORTS
+  POLITICS
+  ENTERTAINMENT
+  TECHNOLOGY
+  CULTURE
+  OTHER
+}
+
+enum WagerStatus {
+  ACTIVE
+  WON
+  LOST
+  REFUNDED
+}
+
+enum SuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReportReasonType {
+  INAPPROPRIATE
+  MISLEADING
+  DUPLICATE
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+enum NotificationType {
+  BET_RESOLVED
+  BET_CLOSING_SOON
+  BET_CANCELLED
+  WELCOME
+  DAILY_BONUS
+  ACHIEVEMENT
+}
+
+enum RejectionReason {
+  DUPLICATE
+  INAPPROPRIATE
+  AMBIGUOUS
+  LOW_QUALITY
+  OTHER
+}
+
+// ============================================
+// USER MODEL
+// ============================================
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  googleId     String    @unique @map("google_id") @db.VarChar(255)
+  email        String    @unique @db.VarChar(255)
+  displayName  String    @map("display_name") @db.VarChar(100)
+  avatarUrl    String?   @map("avatar_url") @db.Text
+  balance      Int       @default(1000)
+  role         UserRole  @default(USER)
+  isSuspended  Boolean   @default(false) @map("is_suspended")
+  totalBets    Int       @default(0) @map("total_bets")
+  totalWins    Int       @default(0) @map("total_wins")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  wagers              Wager[]
+  comments            Comment[]
+  reports             Report[]        @relation("reporter")
+  notifications       Notification[]
+  createdBets         Bet[]           @relation("bet_creator")
+  reviewedSuggestions AISuggestion[]  @relation("suggestion_reviewer")
+  resolvedReports     Report[]        @relation("report_resolver")
+  auditLogs           AuditLog[]
+
+  @@map("users")
+}
+
+// ============================================
+// BET MODEL
+// ============================================
+
+model Bet {
+  id                 String      @id @default(uuid()) @db.Uuid
+  slug               String      @unique @db.VarChar(200)
+  shortId            String      @unique @map("short_id") @db.VarChar(8)
+  title              String      @db.VarChar(120)
+  description        String      @db.Text
+  resolutionCriteria String      @map("resolution_criteria") @db.Text
+  category           BetCategory
+  status             BetStatus   @default(DRAFT)
+  source             BetSource
+  createdById        String      @map("created_by") @db.Uuid
+  closeTime          DateTime    @map("close_time")
+  resolvedAt         DateTime?   @map("resolved_at")
+  winningOutcomeId   String?     @map("winning_outcome_id") @db.Uuid
+  cancelReason       String?     @map("cancel_reason") @db.Text
+  totalPool          Int         @default(0) @map("total_pool")
+  participantCount   Int         @default(0) @map("participant_count")
+  tags               String[]    @default([])
+  referenceLinks     String[]    @default([]) @map("reference_links")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  createdBy      User           @relation("bet_creator", fields: [createdById], references: [id])
+  winningOutcome Outcome?       @relation("winning_outcome", fields: [winningOutcomeId], references: [id])
+  outcomes       Outcome[]      @relation("bet_outcomes")
+  wagers         Wager[]
+  comments       Comment[]
+  reports        Report[]
+  aiSuggestion   AISuggestion?  @relation("published_bet")
+
+  @@index([status, category])
+  @@index([closeTime])
+  @@index([createdAt])
+  @@map("bets")
+}
+
+// ============================================
+// OUTCOME MODEL
+// ============================================
+
+model Outcome {
+  id          String @id @default(uuid()) @db.Uuid
+  betId       String @map("bet_id") @db.Uuid
+  label       String @db.VarChar(60)
+  sortOrder   Int    @map("sort_order")
+  totalWagers Int    @default(0) @map("total_wagers")
+  totalCoins  Int    @default(0) @map("total_coins")
+
+  bet     Bet     @relation("bet_outcomes", fields: [betId], references: [id], onDelete: Cascade)
+  wagers  Wager[]
+  wonBets Bet[]   @relation("winning_outcome")
+
+  @@unique([betId, label])
+  @@index([betId])
+  @@map("outcomes")
+}
+
+// ============================================
+// WAGER MODEL
+// ============================================
+
+model Wager {
+  id        String      @id @default(uuid()) @db.Uuid
+  userId    String      @map("user_id") @db.Uuid
+  betId     String      @map("bet_id") @db.Uuid
+  outcomeId String      @map("outcome_id") @db.Uuid
+  amount    Int
+  payout    Int?
+  status    WagerStatus @default(ACTIVE)
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bet     Bet     @relation(fields: [betId], references: [id], onDelete: Cascade)
+  outcome Outcome @relation(fields: [outcomeId], references: [id])
+
+  @@unique([userId, betId])
+  @@index([betId])
+  @@index([outcomeId])
+  @@map("wagers")
+}
+
+// ============================================
+// AI SUGGESTION MODEL
+// ============================================
+
+model AISuggestion {
+  id                 String           @id @default(uuid()) @db.Uuid
+  title              String           @db.VarChar(120)
+  description        String           @db.Text
+  outcomes           Json
+  resolutionCriteria String           @map("resolution_criteria") @db.Text
+  suggestedDeadline  DateTime         @map("suggested_deadline")
+  category           BetCategory
+  confidenceScore    Float            @map("confidence_score")
+  sourceLinks        String[]         @default([]) @map("source_links")
+  status             SuggestionStatus @default(PENDING)
+  reviewedById       String?          @map("reviewed_by") @db.Uuid
+  rejectionReason    RejectionReason? @map("rejection_reason")
+  publishedBetId     String?          @unique @map("published_bet_id") @db.Uuid
+  createdAt          DateTime         @default(now()) @map("created_at")
+  reviewedAt         DateTime?        @map("reviewed_at")
+
+  reviewedBy   User? @relation("suggestion_reviewer", fields: [reviewedById], references: [id])
+  publishedBet Bet?  @relation("published_bet", fields: [publishedBetId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([confidenceScore])
+  @@map("ai_suggestions")
+}
+
+// ============================================
+// COMMENT MODEL
+// ============================================
+
+model Comment {
+  id        String   @id @default(uuid()) @db.Uuid
+  betId     String   @map("bet_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  parentId  String?  @map("parent_id") @db.Uuid
+  content   String   @db.VarChar(500)
+  isDeleted Boolean  @default(false) @map("is_deleted")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  bet     Bet       @relation(fields: [betId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("comment_replies", fields: [parentId], references: [id])
+  replies Comment[] @relation("comment_replies")
+
+  @@index([betId])
+  @@index([userId])
+  @@map("comments")
+}
+
+// ============================================
+// REPORT MODEL
+// ============================================
+
+model Report {
+  id           String           @id @default(uuid()) @db.Uuid
+  reporterId   String           @map("reporter_id") @db.Uuid
+  betId        String?          @map("bet_id") @db.Uuid
+  commentId    String?          @map("comment_id") @db.Uuid
+  reasonType   ReportReasonType @map("reason_type")
+  description  String?          @db.Text
+  status       ReportStatus     @default(PENDING)
+  resolvedById String?          @map("resolved_by") @db.Uuid
+  createdAt    DateTime         @default(now()) @map("created_at")
+  resolvedAt   DateTime?        @map("resolved_at")
+
+  reporter   User  @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  bet        Bet?  @relation(fields: [betId], references: [id], onDelete: Cascade)
+  resolvedBy User? @relation("report_resolver", fields: [resolvedById], references: [id])
+
+  @@index([status])
+  @@index([betId])
+  @@map("reports")
+}
+
+// ============================================
+// NOTIFICATION MODEL
+// ============================================
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(100)
+  message   String           @db.Text
+  betId     String?          @map("bet_id") @db.Uuid
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ============================================
+// AUDIT LOG MODEL
+// ============================================
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  adminId    String   @map("admin_id") @db.Uuid
+  action     String   @db.VarChar(50)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String   @map("entity_id") @db.Uuid
+  metadata   Json?
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  admin User @relation(fields: [adminId], references: [id])
+
+  @@index([adminId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}

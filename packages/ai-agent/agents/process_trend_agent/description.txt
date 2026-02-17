@@ -1,0 +1,10 @@
+This agent processes a single Twitter trend.
+
+For each trend in the list:
+- Set the variable `trend` to the current item
+- Execute the downstream agents
+
+It receives one trend object at a time and is responsible for analyzing
+whether the trend is relevant for prediction markets and downstream actions.
+
+This agent does not fetch data on its own; it only reasons over the provided trend.

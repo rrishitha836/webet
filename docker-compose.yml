@@ -1,0 +1,127 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: webet-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-webet_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-webet_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-webet_db}
+    ports:
+      - "5433:5432"  # Use port 5433 on host to avoid conflict
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - webet-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-webet_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    container_name: webet-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - webet-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: packages/backend/Dockerfile
+    container_name: webet-backend
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://webet_user:webet_pass@postgres:5432/webet_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-secret-key-minimum-32-characters-long-change-in-production
+  # Use environment variables for sensitive credentials. Set these in your
+  # deployment environment or in a local .env (never commit secrets).
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      FRONTEND_URL: http://localhost:3000
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./packages/backend:/app/packages/backend
+      - ./packages/database:/app/packages/database
+      - ./packages/shared:/app/packages/shared
+      - /app/node_modules
+    networks:
+      - webet-network
+    command: sh -c "cd packages/backend && npm run dev"
+
+  # Frontend Next.js App
+  frontend:
+    build:
+      context: .
+      dockerfile: packages/frontend/Dockerfile
+    container_name: webet-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_WS_URL: ws://localhost:3001
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: your-nextauth-secret
+      GOOGLE_CLIENT_ID: your-google-client-id
+      GOOGLE_CLIENT_SECRET: your-google-client-secret
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./packages/frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - webet-network
+    command: npm run dev
+
+  # AI Agent
+  ai-agent:
+    build:
+      context: .
+      dockerfile: packages/ai-agent/Dockerfile
+    container_name: webet-ai-agent
+    environment:
+      GOOGLE_API_KEY: your-google-api-key
+      BACKEND_URL: http://backend:3001
+      WEBHOOK_SECRET: your-webhook-secret
+      ANALYSIS_INTERVAL: 30
+      LOG_LEVEL: INFO
+    depends_on:
+      - backend
+    volumes:
+      - ./packages/ai-agent:/app
+      - ai_logs:/app/logs
+    networks:
+      - webet-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  ai_logs:
+
+networks:
+  webet-network:
+    driver: bridge

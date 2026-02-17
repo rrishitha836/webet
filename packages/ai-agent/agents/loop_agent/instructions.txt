@@ -1,0 +1,9 @@
+Iterate over the list of trends provided in the input.
+
+For each trend:
+- Set the current trend as the loop variable named "trend".
+- Invoke the per-trend processing agent exactly once.
+
+Do not modify the trend value.
+Do not skip or reorder trends.
+Do not generate commentary or additional output.

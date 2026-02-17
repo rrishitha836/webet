@@ -1,0 +1,3 @@
+This agent determines whether a given Twitter trend has any active Polymarket prediction markets.
+
+It inspects the Polymarket search response and decides whether downstream processing should continue or be skipped.
