@@ -1,0 +1,260 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ai_suggestions {
+  id                  String           @id @db.Uuid
+  title               String           @db.VarChar(120)
+  description         String
+  outcomes            Json
+  resolution_criteria String
+  suggested_deadline  DateTime
+  category            BetCategory
+  confidence_score    Float
+  source_links        String[]         @default([])
+  status              SuggestionStatus @default(PENDING)
+  reviewed_by         String?          @db.Uuid
+  rejection_reason    RejectionReason?
+  published_bet_id    String?          @unique @db.Uuid
+  created_at          DateTime         @default(now())
+  reviewed_at         DateTime?
+  bets                bets?            @relation(fields: [published_bet_id], references: [id])
+  users               users?           @relation(fields: [reviewed_by], references: [id])
+
+  @@index([confidence_score])
+  @@index([status, created_at])
+}
+
+model audit_logs {
+  id          String   @id @db.Uuid
+  admin_id    String   @db.Uuid
+  action      String   @db.VarChar(50)
+  entity_type String   @db.VarChar(50)
+  entity_id   String   @db.Uuid
+  metadata    Json?
+  ip_address  String?  @db.VarChar(45)
+  created_at  DateTime @default(now())
+  users       users    @relation(fields: [admin_id], references: [id])
+
+  @@index([admin_id, created_at])
+  @@index([entity_type, entity_id])
+}
+
+model bets {
+  id                                         String          @id @db.Uuid
+  slug                                       String          @unique @db.VarChar(200)
+  short_id                                   String          @unique @db.VarChar(8)
+  title                                      String          @db.VarChar(120)
+  description                                String
+  resolution_criteria                        String
+  category                                   BetCategory
+  status                                     BetStatus       @default(DRAFT)
+  source                                     BetSource
+  created_by                                 String          @db.Uuid
+  close_time                                 DateTime
+  resolved_at                                DateTime?
+  winning_outcome_id                         String?         @db.Uuid
+  cancel_reason                              String?
+  total_pool                                 Int             @default(0)
+  participant_count                          Int             @default(0)
+  tags                                       String[]        @default([])
+  reference_links                            String[]        @default([])
+  created_at                                 DateTime        @default(now())
+  updated_at                                 DateTime
+  ai_suggestions                             ai_suggestions?
+  users                                      users           @relation(fields: [created_by], references: [id])
+  outcomes_bets_winning_outcome_idTooutcomes outcomes?       @relation("bets_winning_outcome_idTooutcomes", fields: [winning_outcome_id], references: [id])
+  comments                                   comments[]
+  outcomes_outcomes_bet_idTobets             outcomes[]      @relation("outcomes_bet_idTobets")
+  reports                                    reports[]
+  wagers                                     wagers[]
+
+  @@index([close_time])
+  @@index([created_at])
+  @@index([status, category])
+}
+
+model comments {
+  id             String     @id @db.Uuid
+  bet_id         String     @db.Uuid
+  user_id        String     @db.Uuid
+  parent_id      String?    @db.Uuid
+  content        String     @db.VarChar(500)
+  is_deleted     Boolean    @default(false)
+  created_at     DateTime   @default(now())
+  bets           bets       @relation(fields: [bet_id], references: [id], onDelete: Cascade)
+  comments       comments?  @relation("commentsTocomments", fields: [parent_id], references: [id])
+  other_comments comments[] @relation("commentsTocomments")
+  users          users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([bet_id])
+  @@index([user_id])
+}
+
+model notifications {
+  id         String           @id @db.Uuid
+  user_id    String           @db.Uuid
+  type       NotificationType
+  title      String           @db.VarChar(100)
+  message    String
+  bet_id     String?          @db.Uuid
+  is_read    Boolean          @default(false)
+  created_at DateTime         @default(now())
+  users      users            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([created_at])
+  @@index([user_id, is_read])
+}
+
+model outcomes {
+  id                                     String   @id @db.Uuid
+  bet_id                                 String   @db.Uuid
+  label                                  String   @db.VarChar(60)
+  sort_order                             Int
+  total_wagers                           Int      @default(0)
+  total_coins                            Int      @default(0)
+  bets_bets_winning_outcome_idTooutcomes bets[]   @relation("bets_winning_outcome_idTooutcomes")
+  bets_outcomes_bet_idTobets             bets     @relation("outcomes_bet_idTobets", fields: [bet_id], references: [id], onDelete: Cascade)
+  wagers                                 wagers[]
+
+  @@unique([bet_id, label])
+  @@index([bet_id])
+}
+
+model reports {
+  id                               String           @id @db.Uuid
+  reporter_id                      String           @db.Uuid
+  bet_id                           String?          @db.Uuid
+  comment_id                       String?          @db.Uuid
+  reason_type                      ReportReasonType
+  description                      String?
+  status                           ReportStatus     @default(PENDING)
+  resolved_by                      String?          @db.Uuid
+  created_at                       DateTime         @default(now())
+  resolved_at                      DateTime?
+  bets                             bets?            @relation(fields: [bet_id], references: [id], onDelete: Cascade)
+  users_reports_reporter_idTousers users            @relation("reports_reporter_idTousers", fields: [reporter_id], references: [id], onDelete: Cascade)
+  users_reports_resolved_byTousers users?           @relation("reports_resolved_byTousers", fields: [resolved_by], references: [id])
+
+  @@index([bet_id])
+  @@index([status])
+}
+
+model users {
+  id                                 String           @id @db.Uuid
+  google_id                          String?          @unique @db.VarChar(255)
+  email                              String           @unique @db.VarChar(255)
+  display_name                       String           @db.VarChar(100)
+  avatar_url                         String?
+  balance                            Int              @default(1000)
+  role                               UserRole         @default(USER)
+  is_suspended                       Boolean          @default(false)
+  total_bets                         Int              @default(0)
+  total_wins                         Int              @default(0)
+  last_login_at                      DateTime?
+  created_at                         DateTime         @default(now())
+  updated_at                         DateTime
+  password_hash                      String?          @db.VarChar(255)
+  ai_suggestions                     ai_suggestions[]
+  audit_logs                         audit_logs[]
+  bets                               bets[]
+  comments                           comments[]
+  notifications                      notifications[]
+  reports_reports_reporter_idTousers reports[]        @relation("reports_reporter_idTousers")
+  reports_reports_resolved_byTousers reports[]        @relation("reports_resolved_byTousers")
+  wagers                             wagers[]
+}
+
+model wagers {
+  id         String      @id @db.Uuid
+  user_id    String      @db.Uuid
+  bet_id     String      @db.Uuid
+  outcome_id String      @db.Uuid
+  amount     Int
+  payout     Int?
+  status     WagerStatus @default(ACTIVE)
+  created_at DateTime    @default(now())
+  bets       bets        @relation(fields: [bet_id], references: [id], onDelete: Cascade)
+  outcomes   outcomes    @relation(fields: [outcome_id], references: [id])
+  users      users       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, bet_id])
+  @@index([bet_id])
+  @@index([outcome_id])
+}
+
+enum BetCategory {
+  SPORTS
+  POLITICS
+  ENTERTAINMENT
+  TECHNOLOGY
+  CULTURE
+  OTHER
+}
+
+enum BetSource {
+  AI_GENERATED
+  MANUAL
+}
+
+enum BetStatus {
+  DRAFT
+  OPEN
+  PAUSED
+  CLOSED
+  RESOLVED
+  CANCELLED
+}
+
+enum NotificationType {
+  BET_RESOLVED
+  BET_CLOSING_SOON
+  BET_CANCELLED
+  WELCOME
+  DAILY_BONUS
+  ACHIEVEMENT
+}
+
+enum RejectionReason {
+  DUPLICATE
+  INAPPROPRIATE
+  AMBIGUOUS
+  LOW_QUALITY
+  OTHER
+}
+
+enum ReportReasonType {
+  INAPPROPRIATE
+  MISLEADING
+  DUPLICATE
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+enum SuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum WagerStatus {
+  ACTIVE
+  WON
+  LOST
+  REFUNDED
+}

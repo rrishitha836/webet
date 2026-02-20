@@ -7,8 +7,12 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "clean": "turbo run clean && rm -rf node_modules",
-    
-    "type-check": "turbo run type-check"
+    "type-check": "turbo run type-check",
+    "db:generate": "pnpm --filter @webet/database db:generate",
+    "db:pull": "pnpm --filter @webet/database db:pull",
+    "db:push": "pnpm --filter @webet/database db:push",
+    "db:migrate": "pnpm --filter @webet/database db:migrate",
+    "db:studio": "pnpm --filter @webet/database db:studio"
   },
   "devDependencies": {
     "@types/node": "^20.5.0",
