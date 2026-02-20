@@ -70,6 +70,11 @@
   * {
     @apply border-border;
   }
+  html, body {
+    @apply h-full;
+    margin: 0;
+    padding: 0;
+  }
   body {
     @apply bg-background text-foreground;
   }

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import AdminLayout from '@/components/admin/AdminLayout';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import ViewToggle from '@/components/ui/ViewToggle';
 
 interface CategoryStats {
   category: string;
@@ -23,6 +25,7 @@ export default function CategoriesPage() {
   const [categoryData, setCategoryData] = useState<BetCounts | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { admin } = useAuth();
 
   const categories = [
@@ -70,11 +73,13 @@ export default function CategoriesPage() {
 
   return (
     <AdminLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Categories Overview</h1>
-        <p className="text-gray-600">Manage and view betting categories with statistics</p>
-      </div>
-
+      <AdminPageHeader 
+        title="Categories" 
+        subtitle="Manage and view betting categories with statistics"
+        actions={<ViewToggle view={viewMode} onChange={setViewMode} />}
+      />
+      
+      <div className="p-8">
       {loading && (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -107,11 +112,11 @@ export default function CategoriesPage() {
             </div>
           </div>
 
-          {/* Categories Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Categories Grid / List */}
+          <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-3'}>
             {categories.map((category) => {
               const stats = getCategoryStats(category.name);
-              return (
+              return viewMode === 'grid' ? (
                 <div key={category.name} className="bg-white rounded-lg shadow overflow-hidden">
                   <div className={`${category.color} px-6 py-4`}>
                     <div className="flex items-center">
@@ -165,6 +170,38 @@ export default function CategoriesPage() {
                     )}
                   </div>
                 </div>
+              ) : (
+                <div key={category.name} className="bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all p-4 flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-lg ${category.color} flex items-center justify-center text-xl shrink-0`}>
+                    {category.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-gray-900">{category.name}</h3>
+                    <p className="text-xs text-gray-500">{stats.count} total bet{stats.count !== 1 ? 's' : ''}</p>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-6 shrink-0 text-sm">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-400">Active</p>
+                      <p className="font-semibold text-green-600">{stats.activeCount}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-400">Resolved</p>
+                      <p className="font-semibold text-blue-600">{stats.resolvedCount}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-400">Total</p>
+                      <p className="font-bold text-gray-900">{stats.count}</p>
+                    </div>
+                  </div>
+                  {stats.count > 0 && (
+                    <Link
+                      href={`/admin/bets?category=${category.name}`}
+                      className="text-xs font-medium text-indigo-600 hover:text-indigo-800 shrink-0"
+                    >
+                      View →
+                    </Link>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -197,6 +234,7 @@ export default function CategoriesPage() {
           </div>
         </>
       )}
+      </div>
     </AdminLayout>
   );
 }

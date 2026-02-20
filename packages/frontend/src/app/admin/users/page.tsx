@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import AdminLayout from '@/components/admin/AdminLayout';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import ViewToggle from '@/components/ui/ViewToggle';
 
 interface User {
   id: string;
@@ -25,6 +27,7 @@ export default function AdminUsersPage() {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { admin } = useAuth();
 
   // Fetch users
@@ -97,11 +100,13 @@ export default function AdminUsersPage() {
 
   return (
     <AdminLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-        <p className="text-gray-600">Manage and view all registered users</p>
-      </div>
-
+      <AdminPageHeader 
+        title="Users" 
+        subtitle="Manage and view all registered users"
+        actions={<ViewToggle view={viewMode} onChange={setViewMode} />}
+      />
+      
+      <div className="p-8">
       {/* Filters */}
       <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -134,9 +139,10 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Users Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Users Grid / List */}
+      <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-3'}>
         {users.map((user) => (
+          viewMode === 'grid' ? (
           <Link
             key={user.id}
             href={`/admin/users/${user.id}`}
@@ -196,6 +202,46 @@ export default function AdminUsersPage() {
               </div>
             </div>
           </Link>
+          ) : (
+          <Link
+            key={user.id}
+            href={`/admin/users/${user.id}`}
+            className="bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all p-4 flex items-center gap-4"
+          >
+            <div className="flex-shrink-0">
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.displayName} className="w-10 h-10 rounded-full object-cover" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                  {getInitials(user.displayName)}
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-gray-900 truncate">{user.displayName}</h3>
+                {user.isSuspended && (
+                  <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full shrink-0">Suspended</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+            </div>
+            <div className="hidden sm:flex items-center gap-6 shrink-0 text-sm">
+              <div className="text-center">
+                <p className="text-xs text-gray-400">Bets</p>
+                <p className="font-semibold text-gray-900">{user.totalBets}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-400">Wins</p>
+                <p className="font-semibold text-green-600">{user.totalWins}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-400">Balance</p>
+                <p className="font-semibold text-gray-900">${user.balance.toLocaleString()}</p>
+              </div>
+            </div>
+          </Link>
+          )
         ))}
       </div>
 
@@ -222,6 +268,7 @@ export default function AdminUsersPage() {
           </p>
         </div>
       )}
+      </div>
     </AdminLayout>
   );
 }

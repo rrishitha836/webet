@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { BetCard } from '@/components/bets/BetCard';
 import { BetDetailsModal } from '@/components/bets/BetDetailsModal';
 import { useRouter } from 'next/navigation';
+import ViewToggle from '@/components/ui/ViewToggle';
 
 // ── Color helpers ──
 function getOutcomeColor(label: string): { bg: string; text: string; border: string; bar: string } {
@@ -59,6 +60,8 @@ function DashboardContent() {
   const [selectedBetId, setSelectedBetId] = useState<string | null>(null);
   const [selectedUserWager, setSelectedUserWager] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [myBetsViewMode, setMyBetsViewMode] = useState<'grid' | 'list'>('grid');
+  const [browseBetsViewMode, setBrowseBetsViewMode] = useState<'grid' | 'list'>('grid');
   
   // ── Fetch ALL user bets once ──
   const { data: allBets, isLoading: betsLoading, refetch: refetchBets } = useAllUserBets();
@@ -282,7 +285,8 @@ function DashboardContent() {
           <>
             {/* Sub-tabs – pill style */}
             <div className="mb-6">
-              <div className="flex overflow-x-auto scrollbar-hide gap-2 sm:gap-2.5 pb-1">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex overflow-x-auto scrollbar-hide gap-2 sm:gap-2.5 pb-1">
                 {myBetsTabs.map((tab) => (
                   <button
                     key={tab.key}
@@ -308,6 +312,8 @@ function DashboardContent() {
                     </span>
                   </button>
                 ))}
+                </div>
+                <ViewToggle view={myBetsViewMode} onChange={setMyBetsViewMode} />
               </div>
             </div>
 
@@ -335,14 +341,53 @@ function DashboardContent() {
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
               </div>
             ) : currentBetsList.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+              <div className={myBetsViewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5' : 'space-y-3'}>
                 {currentBetsList.map((bet: any) => {
                   const outcomeColor = getOutcomeColor(bet.wager?.outcome?.label || '');
                   const isWon = bet.wager?.status === 'WON';
                   const isLost = bet.wager?.status === 'LOST';
                   const isRefunded = bet.wager?.status === 'REFUNDED';
 
-                  return (
+                  return myBetsViewMode === 'list' ? (
+                    <div
+                      key={bet.wager?.id || bet.id}
+                      onClick={() => handleOpenBetDetails(bet)}
+                      className={`group bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer p-4 flex items-center gap-4 ${
+                        isWon ? 'border-emerald-200 ring-1 ring-emerald-100' :
+                        isLost ? 'border-red-200 ring-1 ring-red-100' :
+                        'border-gray-200 hover:border-blue-200'
+                      }`}
+                    >
+                      {myBetsFilter === 'COMPLETED' && (
+                        <div className={`w-1 h-10 rounded-full shrink-0 ${isWon ? 'bg-emerald-500' : isLost ? 'bg-red-500' : 'bg-amber-500'}`} />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">{bet.title}</h3>
+                          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${getWagerStatusBadge(bet.wager?.status)}`}>{bet.wager?.status}</span>
+                          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${getBetStatusBadge(bet.status)}`}>{bet.status}</span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                          <span className={`inline-flex items-center gap-1 ${outcomeColor.text}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${outcomeColor.bar}`} />
+                            {bet.wager?.outcome?.label || 'N/A'}
+                          </span>
+                          <span>Staked ${bet.wager?.amount?.toLocaleString() || 0}</span>
+                          <span>{bet.category}</span>
+                        </div>
+                      </div>
+                      <div className="hidden sm:flex items-center gap-4 shrink-0 text-sm">
+                        {myBetsFilter === 'ACTIVE' && (
+                          <span className="font-semibold text-orange-600 text-xs">{bet.closeTime ? formatTimeLeft(bet.closeTime) : '—'}</span>
+                        )}
+                        {myBetsFilter === 'COMPLETED' && (
+                          <span className={`font-semibold text-xs ${isWon ? 'text-emerald-600' : isLost ? 'text-red-600' : 'text-amber-600'}`}>
+                            {isWon ? '+' : isLost ? '-' : ''}${bet.wager?.amount?.toLocaleString() || 0}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
                     <div
                       key={bet.wager?.id || bet.id}
                       onClick={() => handleOpenBetDetails(bet)}
@@ -495,7 +540,10 @@ function DashboardContent() {
         {activeTab === 'ACTIVE_BETS' && (
           <>
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Filter by Category</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-gray-700">Filter by Category</h3>
+                <ViewToggle view={browseBetsViewMode} onChange={setBrowseBetsViewMode} />
+              </div>
               <div className="flex overflow-x-auto scrollbar-hide gap-2 pb-1">
                 {categories.map((category) => (
                   <button
@@ -518,7 +566,7 @@ function DashboardContent() {
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
               </div>
             ) : activeBets && activeBets.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className={browseBetsViewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6' : 'space-y-3'}>
                 {activeBets.map((bet: any) => (
                   <BetCard key={bet.id} bet={bet} />
                 ))}

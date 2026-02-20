@@ -2,34 +2,48 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
+
 import Link from 'next/link';
+import Logo from '@/components/ui/Logo';
 import { useEffect, useState } from 'react';
+// Material UI icons
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import ListAltIcon from '@mui/icons-material/ListAlt';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import CategoryIcon from '@mui/icons-material/Category';
+import PeopleIcon from '@mui/icons-material/People';
+import LogoutIcon from '@mui/icons-material/Logout';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
-  const { admin, adminLogout } = useAuth();
+  const { admin, isLoading, adminLogout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    if (!admin) {
+    if (!isLoading && !admin) {
       router.push('/admin/login');
     }
-  }, [admin, router]);
+  }, [admin, isLoading, router]);
 
   const handleLogout = async () => {
+    setLoggingOut(true);
     try {
-      // close mobile sidebar if open
       setMobileOpen(false);
       await adminLogout();
-      // use replace so user can't go back into protected pages
       router.replace('/admin/login');
     } catch (err) {
-      // fallback navigation even if logout failed
       router.replace('/admin/login');
+    } finally {
+      setLoggingOut(false);
+      setShowLogoutModal(false);
     }
   };
 
@@ -43,189 +57,248 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     return pathname?.startsWith(path);
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-purple-200 border-t-purple-600"></div>
+          <p className="text-sm text-gray-500">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!admin) {
     return null;
   }
-  
-  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const NavContent = (
-    <>
-      <nav className="flex-1 px-3 py-4">
-          <Link 
-            href="/admin/dashboard" 
-            className={`flex items-center px-3 py-2.5 mb-1 rounded-lg transition-colors ${
-              isActive('/admin/dashboard') 
-                ? 'bg-indigo-50 text-indigo-700' 
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
-            </svg>
-            <span className="text-sm">Dashboard</span>
-          </Link>
-          
-          <Link 
-            href="/admin/ai-bets" 
-            className={`flex items-center px-3 py-2.5 mb-1 rounded-lg transition-colors ${
-              isActive('/admin/ai-bets') 
-                ? 'bg-indigo-50 text-indigo-700' 
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-              <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd"/>
-            </svg>
-            <span className="text-sm">Review AI Bets</span>
-          </Link>
-          
-          <Link 
-            href="/admin/bets" 
-            className={`flex items-center px-3 py-2.5 mb-1 rounded-lg transition-colors ${
-              isActive('/admin/bets') && !pathname?.includes('/create')
-                ? 'bg-indigo-50 text-indigo-700' 
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/>
-            </svg>
-            <span className="text-sm">View All Bets</span>
-          </Link>
-          
-          <Link 
-            href="/admin/bets/create" 
-            className={`flex items-center px-3 py-2.5 mb-1 rounded-lg transition-colors ${
-              pathname === '/admin/bets/create'
-                ? 'bg-indigo-50 text-indigo-700' 
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd"/>
-            </svg>
-            <span className="text-sm">Create Bet</span>
-          </Link>
-          
-          <Link 
-            href="/admin/categories" 
-            className={`flex items-center px-3 py-2.5 mb-1 rounded-lg transition-colors ${
-              isActive('/admin/categories') 
-                ? 'bg-indigo-50 text-indigo-700' 
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
-            </svg>
-            <span className="text-sm">Categories</span>
-          </Link>
-          
-          <Link 
-            href="/admin/users" 
-            className={`flex items-center px-3 py-2.5 mb-1 rounded-lg transition-colors ${
-              isActive('/admin/users') 
-                ? 'bg-indigo-50 text-indigo-700' 
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
-            </svg>
-            <span className="text-sm">Users</span>
-          </Link>
-        </nav>
+  const navItems = [
+    {
+      href: '/admin/dashboard',
+      label: 'Dashboard',
+      icon: <DashboardIcon fontSize="small" />,
+    },
+    {
+      href: '/admin/ai-bets',
+      label: 'Review AI Bets',
+      icon: <PsychologyIcon fontSize="small" />,
+    },
+    {
+      href: '/admin/bets',
+      label: 'View All Bets',
+      activeCheck: () => isActive('/admin/bets') && !pathname?.includes('/create'),
+      icon: <ListAltIcon fontSize="small" />,
+    },
+    {
+      href: '/admin/bets/create',
+      label: 'Create Bet',
+      activeCheck: () => pathname === '/admin/bets/create',
+      icon: <AddCircleOutlineIcon fontSize="small" />,
+    },
+    {
+      href: '/admin/categories',
+      label: 'Categories',
+      icon: <CategoryIcon fontSize="small" />,
+    },
+    {
+      href: '/admin/users',
+      label: 'Users',
+      icon: <PeopleIcon fontSize="small" />,
+    },
+  ];
 
-      <div className="p-4 border-t border-gray-100">
+  const logoutIcon = <LogoutIcon fontSize="small" />;
+
+  const navMainItems = navItems.slice(0, 5); // Dashboard through Categories
+  const navOtherItems = navItems.slice(5);    // Users
+
+  const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
+    <div className="flex flex-col h-full bg-white border-r border-gray-200">
+      {/* Logo + Brand */}
+      <div className="px-5 py-5">
+        <div className="flex items-center gap-2.5">
+          <Logo />
+          <span className="text-xl font-bold text-gray-900">WeBet</span>
+          <span className="ml-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-purple-600 text-white rounded-md">Admin</span>
+        </div>
+        {/* divider between logo and menu */}
+        <div className="mt-4 border-b border-gray-100" />
+      </div>
+
+      {/* Main Menu Section */}
+      <div className="px-5 mt-2 mb-3">
+        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Main Menu</p>
+      </div>
+      <nav className="px-3 space-y-0.5">
+        {navMainItems.map((item) => {
+          const active = item.activeCheck ? item.activeCheck() : isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => isMobile && setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                active
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-500 text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              }`}
+            >
+              {item.icon}
+              <span className="text-sm font-medium">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Others Section */}
+      <div className="px-5 mt-6 mb-3">
+        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Others</p>
+      </div>
+      <nav className="flex-1 px-3 space-y-0.5">
+        {navOtherItems.map((item) => {
+          const active = item.activeCheck ? item.activeCheck() : isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => isMobile && setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                active
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-500 text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              }`}
+            >
+              {item.icon}
+              <span className="text-sm font-medium">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Logout at Bottom */}
+      <div className="px-3 pb-5 mt-auto border-t border-gray-100 pt-4">
         <button
-          onClick={handleLogout}
-          className="flex items-center w-full px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+          onClick={() => setShowLogoutModal(true)}
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
         >
-          <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd"/>
-          </svg>
-          Logout
+          {logoutIcon}
+          <span className="text-sm font-medium">Logout</span>
         </button>
       </div>
-    </>
+    </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Top Header Bar - Always visible on all pages */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4">
-          <div className="flex items-center gap-3">
-            {/* Mobile hamburger */}
+    <div className="flex h-screen overflow-hidden bg-gray-50">
+      {/* ─── Desktop Sidebar ─── */}
+      <aside className="hidden md:block w-64 shrink-0 h-screen overflow-y-auto">
+        <SidebarContent />
+      </aside>
+
+      {/* ─── Mobile Sidebar Overlay ─── */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <div className="absolute left-0 top-0 h-full w-80 shadow-2xl flex flex-col animate-slide-in">
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="absolute top-5 right-4 z-10 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <SidebarContent isMobile />
+          </div>
+        </div>
+      )}
+
+      {/* ─── Main Area ─── */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Mobile-only header (hamburger + logo) */}
+        <header className="shrink-0 bg-white border-b border-gray-200 z-30 md:hidden">
+          <div className="flex items-center gap-3 px-4 h-14">
             <button
               onClick={() => setMobileOpen(true)}
-              className="md:hidden p-2 rounded-md text-gray-600 hover:bg-gray-50"
+              className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
               aria-label="Open menu"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            
-            {/* WeBet logo/name */}
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900">WeBet</h1>
-          </div>
-
-          {/* Logout button */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd"/>
-            </svg>
-            <span className="hidden sm:inline">Logout</span>
-          </button>
-        </div>
-      </header>
-
-      <div className="flex flex-1 overflow-hidden">
-        {/* Desktop Sidebar */}
-        <div className="hidden md:flex w-64 bg-white border-r border-gray-200 flex-col overflow-y-auto">
-          <div className="p-4 border-b border-gray-100">
-            <p className="text-sm text-gray-600">Admin Panel</p>
-            <p className="text-xs text-gray-500 mt-1">{admin.email}</p>
-          </div>
-          {NavContent}
-        </div>
-
-        {/* Mobile Sidebar Overlay */}
-        {mobileOpen && (
-          <div className="fixed inset-0 z-50 md:hidden">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-            <div className="absolute left-0 top-0 h-full w-80 bg-white border-r border-gray-200 shadow-xl flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">Admin Panel</h2>
-                  <p className="text-xs text-gray-500 mt-1">{admin.email}</p>
-                </div>
-                <button onClick={() => setMobileOpen(false)} className="p-2">
-                  <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                {NavContent}
-              </div>
+            <div className="flex items-center gap-2.5">
+              <Logo />
+              <h1 className="text-lg font-bold text-gray-900">WeBet</h1>
             </div>
           </div>
-        )}
+        </header>
 
-        {/* Main Content */}
-        <div className="flex-1 overflow-auto">
-          <div className="p-4 md:p-8">
-            {children}
+        {/* Desktop header */}
+        <header className="hidden md:flex shrink-0 items-center justify-between bg-white border-b border-gray-200 px-8 h-16 z-30">
+          <p className="text-base font-medium text-gray-800">Welcome Admin! 👋</p>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">Admin</span>
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm">
+              A
+            </div>
+          </div>
+        </header>
+
+        {/* Scrollable Content */}
+        <main className="flex-1 overflow-y-auto bg-gray-50">
+          {children}
+        </main>
+      </div>
+
+      {/* ─── Logout Confirmation Modal ─── */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !loggingOut && setShowLogoutModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 animate-in fade-in zoom-in">
+            {/* Icon */}
+            <div className="flex justify-center mb-4">
+              <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center">
+                <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+              </div>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
+              Are you sure you want to logout?
+            </h3>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              You will be redirected to the login page.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                disabled={loggingOut}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-red-600 text-white font-medium text-sm hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loggingOut ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Logging out…
+                  </>
+                ) : (
+                  'Confirm Logout'
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

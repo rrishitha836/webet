@@ -50,12 +50,12 @@ services:
       DATABASE_URL: postgresql://webet_user:webet_pass@postgres:5432/webet_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev-secret-key-minimum-32-characters-long-change-in-production
-  # Use environment variables for sensitive credentials. Set these in your
-  # deployment environment or in a local .env (never commit secrets).
-  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      # Use environment variables for sensitive credentials. Set these in your
+      # deployment environment or in a local .env (never commit secrets).
+      GOOGLE_CLIENT_ID: 957133942213-3uugd5akuvc6ld00e5sji53e9m0fpe3d.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: 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
       FRONTEND_URL: http://localhost:3000
-      PORT: 3001
+    PORT: 3001
     ports:
       - "3001:3001"
     depends_on:

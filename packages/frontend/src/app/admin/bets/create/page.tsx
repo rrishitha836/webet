@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/admin/AdminLayout';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
 
 interface BetOutcome {
   label: string;
@@ -131,11 +132,12 @@ export default function CreateBetPage() {
 
   return (
     <AdminLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Create New Bet</h1>
-        <p className="text-gray-600">Create a new betting market manually</p>
-      </div>
-
+      <AdminPageHeader 
+        title="Create New Bet" 
+        subtitle="Create a new betting market manually"
+      />
+      
+      <div className="p-8">
       {error && (
         <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
           {error}
@@ -301,6 +303,7 @@ export default function CreateBetPage() {
           </button>
         </div>
       </form>
+      </div>
     </AdminLayout>
   );
 }

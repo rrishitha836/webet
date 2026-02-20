@@ -5,9 +5,11 @@ import { useSearchParams } from 'next/navigation';
 import { useAISuggestions, useApproveAISuggestion, useRejectAISuggestion } from '@/hooks/useAdminApi';
 import { AdminProtectedRoute } from '@/components/auth/AdminProtectedRoute';
 import AdminLayout from '@/components/admin/AdminLayout';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import ViewToggle from '@/components/ui/ViewToggle';
 
 function AISuggestionsContent() {
   const searchParams = useSearchParams();
@@ -18,6 +20,7 @@ function AISuggestionsContent() {
   const rejectMutation = useRejectAISuggestion();
   const [selectedSuggestion, setSelectedSuggestion] = useState<any>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   // Update filter if URL param changes
   useEffect(() => {
@@ -50,38 +53,42 @@ function AISuggestionsContent() {
 
   return (
     <AdminLayout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">AI Suggestions Queue</h1>
-        <p className="text-gray-600">Review and manage AI-generated bet suggestions</p>
-      </div>
-
-      {/* Filters */}
-      <div className="mb-6">
-        <div className="flex gap-2">
-          {filters.map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f === 'ALL' ? '' : f)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                (f === 'ALL' && !filter) || filter === f
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-              }`}
-            >
-              {f}
-            </button>
-          ))}
+      <AdminPageHeader 
+        title="AI Suggestions Queue" 
+        subtitle="Review and manage AI-generated bet suggestions"
+        actions={<ViewToggle view={viewMode} onChange={setViewMode} />}
+      />
+      
+      <div className="p-8">
+        {/* Filters */}
+        <div className="mb-6">
+          <div className="flex gap-2">
+            {filters.map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f === 'ALL' ? '' : f)}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  (f === 'ALL' && !filter) || filter === f
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Suggestions List */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      ) : suggestions && suggestions.length > 0 ? (
-        <div className="space-y-4">
-          {suggestions.map((suggestion: any) => (
+        {/* Suggestions List */}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-purple-200 border-t-purple-600"></div>
+            <p className="mt-4 text-sm text-gray-500">Loading suggestions…</p>
+          </div>
+        ) : suggestions && suggestions.length > 0 ? (
+          <div className={viewMode === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : 'space-y-6'}>
+            {suggestions.map((suggestion: any) => (
+            viewMode === 'list' ? (
             <Card key={suggestion.id}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -133,12 +140,12 @@ function AISuggestionsContent() {
                     <div>
                       <p className="text-xs text-gray-600 mb-2">Suggested Outcomes:</p>
                       <div className="flex flex-wrap gap-2">
-                        {(Array.isArray(suggestion.outcomes) ? suggestion.outcomes : []).map((outcome: string, idx: number) => (
+                        {(Array.isArray(suggestion.outcomes) ? suggestion.outcomes : []).map((outcome: any, idx: number) => (
                           <span
                             key={idx}
                             className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
                           >
-                            {outcome}
+                            {typeof outcome === 'string' ? outcome : outcome.label || outcome.name || 'Outcome'}
                           </span>
                         ))}
                       </div>
@@ -178,16 +185,64 @@ function AISuggestionsContent() {
                 )}
               </div>
             </Card>
+            ) : (
+            <div key={suggestion.id} className="bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all p-5">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <h3 className="text-base font-semibold text-gray-900 leading-snug line-clamp-2">{suggestion.title}</h3>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 ${
+                    suggestion.status === 'APPROVED'
+                      ? 'bg-green-100 text-green-800'
+                      : suggestion.status === 'REJECTED'
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}
+                >
+                  {suggestion.status}
+                </span>
+              </div>
+              {suggestion.description && (
+                <p className="text-sm text-gray-600 mb-3 line-clamp-2">{suggestion.description}</p>
+              )}
+              <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                <div>
+                  <p className="text-xs text-gray-400">Category</p>
+                  <p className="font-medium text-gray-700">{suggestion.category}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Confidence</p>
+                  <p className="font-medium text-blue-600">{(suggestion.confidenceScore * 100).toFixed(0)}%</p>
+                </div>
+              </div>
+              {suggestion.outcomes && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {(Array.isArray(suggestion.outcomes) ? suggestion.outcomes : []).map((outcome: any, idx: number) => (
+                    <span key={idx} className="px-2.5 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">
+                      {typeof outcome === 'string' ? outcome : outcome.label || outcome.name || 'Outcome'}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {suggestion.status === 'PENDING' && (
+                <div className="flex gap-2 pt-3 border-t border-gray-100">
+                  <Button size="sm" onClick={() => { setSelectedSuggestion(suggestion); setShowPreviewModal(true); }} variant="outline">Preview</Button>
+                  <Button size="sm" variant="success" onClick={() => handleApprove(suggestion.id)} isLoading={approveMutation.isPending}>Approve</Button>
+                  <Button size="sm" variant="danger" onClick={() => handleReject(suggestion.id)} isLoading={rejectMutation.isPending}>Reject</Button>
+                </div>
+              )}
+            </div>
+            )
           ))}
-        </div>
-      ) : (
-        <Card>
-          <div className="text-center py-12">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No suggestions found</h3>
-            <p className="text-gray-600">AI suggestions will appear here for review</p>
           </div>
-        </Card>
-      )}
+        ) : (
+          <Card>
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No suggestions found</h3>
+              <p className="text-gray-600">AI suggestions will appear here for review</p>
+            </div>
+          </Card>
+        )}
+      </div>
 
       {/* Preview Modal */}
       <Modal
@@ -230,9 +285,9 @@ function AISuggestionsContent() {
               <div>
                 <h4 className="font-semibold text-gray-900 mb-2">Outcomes</h4>
                 <div className="space-y-2">
-                  {(Array.isArray(selectedSuggestion.outcomes) ? selectedSuggestion.outcomes : []).map((outcome: string, idx: number) => (
+                  {(Array.isArray(selectedSuggestion.outcomes) ? selectedSuggestion.outcomes : []).map((outcome: any, idx: number) => (
                     <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                      {outcome}
+                      {typeof outcome === 'string' ? outcome : outcome.label || outcome.name || 'Outcome'}
                     </div>
                   ))}
                 </div>

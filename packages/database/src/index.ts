@@ -1,50 +1,19 @@
-import { PrismaClient } from '@prisma/client';
+// Prisma has been removed from this package.
+// The project currently uses direct `pg` queries in the backend.
+// Keep a minimal stub export so any incidental imports won't break.
 
-// Global instance for development hot reloading
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
+export const prisma = null as unknown as never;
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: ['query', 'error', 'warn'],
-  });
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
-
-// Connection helper
-export async function connectDb() {
-  try {
-    await prisma.$connect();
-    console.log('✅ Database connected successfully');
-  } catch (error) {
-    console.error('❌ Database connection failed:', error);
-    throw error;
-  }
+export async function connectDb(): Promise<void> {
+  throw new Error('Prisma client removed from @webet/database. Use direct pg pool from @webet/backend or packages/backend/src/lib/db.ts');
 }
 
-// Disconnect helper
-export async function disconnectDb() {
-  try {
-    await prisma.$disconnect();
-    console.log('✅ Database disconnected successfully');
-  } catch (error) {
-    console.error('❌ Database disconnection failed:', error);
-    throw error;
-  }
+export async function disconnectDb(): Promise<void> {
+  return;
 }
 
-// Transaction helper
-export async function withTransaction<T>(
-  fn: (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => Promise<T>
-): Promise<T> {
-  return prisma.$transaction(fn);
+export async function withTransaction<T>(_fn: (tx: unknown) => Promise<T>): Promise<T> {
+  throw new Error('Prisma client removed from @webet/database. Transaction helper unavailable.');
 }
 
-// Export types
-export * from '@prisma/client';
-export { Prisma } from '@prisma/client';
-
-// Re-export for convenience
 export default prisma;

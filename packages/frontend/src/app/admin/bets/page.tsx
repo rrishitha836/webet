@@ -5,6 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import AdminLayout from '@/components/admin/AdminLayout';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import ViewToggle from '@/components/ui/ViewToggle';
 
 interface Bet {
   id: string;
@@ -29,6 +31,7 @@ export default function AdminBetsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [pagination, setPagination] = useState({ total: 0, cursor: null, hasMore: false });
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const { admin } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -81,20 +84,32 @@ export default function AdminBetsPage() {
     router.push(`/admin/bets?${params.toString()}`);
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusStyle = (status: string) => {
     switch (status) {
-      case 'OPEN': return 'bg-green-100 text-green-800';
-      case 'CLOSED': return 'bg-yellow-100 text-yellow-800';
-      case 'RESOLVED': return 'bg-blue-100 text-blue-800';
-      case 'CANCELLED': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'OPEN': return { bg: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200', dot: 'bg-emerald-500' };
+      case 'CLOSED': return { bg: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200', dot: 'bg-amber-500' };
+      case 'RESOLVED': return { bg: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200', dot: 'bg-blue-500' };
+      case 'CANCELLED': return { bg: 'bg-red-50 text-red-700 ring-1 ring-red-200', dot: 'bg-red-500' };
+      default: return { bg: 'bg-gray-50 text-gray-700 ring-1 ring-gray-200', dot: 'bg-gray-500' };
     }
   };
 
-  const getSourceColor = (source: string) => {
-    return source === 'AI_GENERATED' 
-      ? 'bg-purple-100 text-purple-800' 
-      : 'bg-blue-100 text-blue-800';
+  const getSourceStyle = (source: string) => {
+    return source === 'AI_GENERATED'
+      ? 'bg-purple-50 text-purple-700 ring-1 ring-purple-200'
+      : 'bg-sky-50 text-sky-700 ring-1 ring-sky-200';
+  };
+
+  const getCategoryStyle = () => 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200';
+
+  const getOutcomeStyle = (index: number) => {
+    const styles = [
+      'bg-emerald-50 text-emerald-700 border-emerald-200',
+      'bg-rose-50 text-rose-700 border-rose-200',
+      'bg-blue-50 text-blue-700 border-blue-200',
+      'bg-amber-50 text-amber-700 border-amber-200',
+    ];
+    return styles[index % styles.length];
   };
 
   const getPageTitle = () => {
@@ -107,31 +122,35 @@ export default function AdminBetsPage() {
 
   return (
     <AdminLayout>
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{getPageTitle()}</h1>
-          <p className="text-gray-600">{pagination.total} bets found</p>
-        </div>
-        <Link
-          href="/admin/bets/create"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-        >
-          <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
-          </svg>
-          Create New Bet
-        </Link>
-      </div>
-
+      <AdminPageHeader 
+        title={getPageTitle()} 
+        subtitle={`${pagination.total} bets found`}
+        actions={
+          <>
+            <ViewToggle view={viewMode} onChange={setViewMode} />
+            <Link
+              href="/admin/bets/create"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg text-sm font-medium"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Create New Bet
+            </Link>
+          </>
+        }
+      />
+      
+      <div className="p-8">
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-end">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Category</label>
             <select
               value={categoryFilter}
               onChange={(e) => handleFilterChange('category', e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             >
               <option value="ALL">All Categories</option>
               <option value="SPORTS">Sports</option>
@@ -144,11 +163,11 @@ export default function AdminBetsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Status</label>
             <select
               value={statusFilter}
               onChange={(e) => handleFilterChange('status', e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             >
               <option value="ALL">All Statuses</option>
               <option value="OPEN">Open</option>
@@ -159,11 +178,11 @@ export default function AdminBetsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Source</label>
             <select
               value={sourceFilter}
               onChange={(e) => handleFilterChange('source', e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             >
               <option value="ALL">All Sources</option>
               <option value="AI_GENERATED">AI Generated</option>
@@ -184,104 +203,194 @@ export default function AdminBetsPage() {
 
       {/* Loading State */}
       {loading && (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-blue-200 border-t-blue-600"></div>
+          <p className="mt-4 text-sm text-gray-500">Loading bets…</p>
         </div>
       )}
 
       {/* Error State */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+        <div className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+          <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
           {error}
         </div>
       )}
 
-      {/* Bets List */}
+      {/* Bets */}
       {!loading && !error && (
-        <div className="space-y-4">
+        <div>
           {bets.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <div className="bg-white rounded-2xl border border-dashed border-gray-300 flex flex-col items-center justify-center py-16 text-center">
+              <svg className="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No bets found</h3>
-              <p className="text-gray-500 mb-4">Try adjusting your filters or create a new bet.</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">No bets found</h3>
+              <p className="text-gray-400 text-sm mb-5">Try adjusting your filters or create a new bet.</p>
               <Link
                 href="/admin/bets/create"
-                className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
               >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                 Create New Bet
               </Link>
             </div>
           ) : (
-            bets.map((bet) => (
-              <div key={bet.id} className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">{bet.title}</h3>
-                    <p className="text-gray-600 text-sm line-clamp-2">{bet.description}</p>
+            <div className={viewMode === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 gap-5' : 'space-y-4'}>
+            {bets.map((bet, _idx) => {
+              const statusStyle = getStatusStyle(bet.status);
+              return viewMode === 'list' ? (
+              /* ─── LIST VIEW CARD ─── */
+              <div key={bet.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6">
+                {/* Badges */}
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${statusStyle.bg}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`} />
+                    {bet.status}
+                  </span>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getSourceStyle(bet.source)}`}>
+                    {bet.source === 'AI_GENERATED' ? '🤖 AI Generated' : '✏️ Manual'}
+                  </span>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getCategoryStyle()}`}>
+                    {bet.category}
+                  </span>
+                </div>
+
+                {/* Title + Description */}
+                <h3 className="text-lg font-bold text-gray-900 leading-snug mb-1">{bet.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed mb-5 line-clamp-2">{bet.description}</p>
+
+                {/* Metadata Row */}
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mb-5">
+                  {/* Pool */}
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Pool</span>
+                    <span className="text-sm font-bold text-gray-800">{bet.totalPool} coins</span>
                   </div>
-                  <div className="flex gap-2 ml-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(bet.status)}`}>
-                      {bet.status}
-                    </span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSourceColor(bet.source)}`}>
-                      {bet.source === 'AI_GENERATED' ? 'AI' : 'Manual'}
-                    </span>
+                  {/* Participants */}
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                    </svg>
+                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Participants</span>
+                    <span className="text-sm font-bold text-gray-800">{bet.participantCount}</span>
+                  </div>
+                  {/* Closes */}
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Closes</span>
+                    <span className="text-sm font-bold text-gray-800">{new Date(bet.closeTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  </div>
+                  {/* Created */}
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                    </svg>
+                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Created</span>
+                    <span className="text-sm font-bold text-gray-800">{new Date(bet.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  <div>
-                    <p className="text-xs text-gray-500">Category</p>
-                    <p className="text-sm font-medium">{bet.category}</p>
+                {/* Outcomes + Footer */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-gray-100">
+                  <div className="flex flex-wrap gap-2">
+                    {bet.outcomes.map((outcome, oi) => (
+                      <span
+                        key={outcome.id}
+                        className={`inline-flex items-center gap-1.5 border px-3 py-1.5 rounded-full text-xs font-semibold ${getOutcomeStyle(oi)}`}
+                      >
+                        {outcome.label}
+                        <span className="opacity-60">·</span>
+                        <span>{outcome.totalWagers} wagers</span>
+                      </span>
+                    ))}
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Pool</p>
-                    <p className="text-sm font-medium">{bet.totalPool} coins</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Participants</p>
-                    <p className="text-sm font-medium">{bet.participantCount}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Closes</p>
-                    <p className="text-sm font-medium">
-                      {new Date(bet.closeTime).toLocaleDateString()}
-                    </p>
-                  </div>
+                  <p className="text-xs text-gray-400 shrink-0">
+                    {bet._count.wagers} wagers · {bet._count.comments} comments · by {bet.createdBy?.displayName || 'Admin'}
+                  </p>
+                </div>
+              </div>
+              ) : (
+              /* ─── GRID VIEW CARD ─── */
+              <div key={bet.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6 flex flex-col">
+                {/* Badges */}
+                <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${statusStyle.bg}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`} />
+                    {bet.status}
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getSourceStyle(bet.source)}`}>
+                    {bet.source === 'AI_GENERATED' ? '🤖 AI' : '✏️ Manual'}
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getCategoryStyle()}`}>
+                    {bet.category}
+                  </span>
                 </div>
 
-                <div className="flex justify-between items-center pt-4 border-t">
-                  <div className="text-xs text-gray-500">
-                    Created by {bet.createdBy?.displayName || 'Unknown'} • {new Date(bet.createdAt).toLocaleDateString()}
+                {/* Title + Description */}
+                <h3 className="text-base font-bold text-gray-900 leading-snug line-clamp-2 mb-1">{bet.title}</h3>
+                <p className="text-sm text-gray-500 line-clamp-2 mb-4">{bet.description}</p>
+
+                {/* 2x2 Stat Boxes */}
+                <div className="grid grid-cols-2 gap-2.5 mb-4">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 flex flex-col items-start gap-1">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm font-bold text-gray-800">{bet.totalPool} coins</p>
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Pool</p>
                   </div>
-                  <div className="flex gap-2">
-                    <span className="text-xs text-gray-500">
-                      {bet._count.wagers} wagers • {bet._count.comments} comments
-                    </span>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 flex flex-col items-start gap-1">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                    </svg>
+                    <p className="text-sm font-bold text-gray-800">{bet.participantCount}</p>
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Participants</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 flex flex-col items-start gap-1">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm font-bold text-gray-800">{new Date(bet.closeTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Closes</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 flex flex-col items-start gap-1">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                    </svg>
+                    <p className="text-sm font-bold text-gray-800">{new Date(bet.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Created</p>
                   </div>
                 </div>
 
                 {/* Outcomes */}
-                <div className="mt-4 pt-4 border-t">
-                  <p className="text-xs text-gray-500 mb-2">Outcomes:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {bet.outcomes.map((outcome) => (
-                      <span
-                        key={outcome.id}
-                        className="bg-gray-100 px-3 py-1 rounded-full text-sm"
-                      >
-                        {outcome.label} ({outcome.totalWagers} wagers)
-                      </span>
-                    ))}
-                  </div>
+                <div className="flex flex-wrap gap-1.5 mt-auto pt-3 border-t border-gray-100">
+                  {bet.outcomes.map((outcome, oi) => (
+                    <span key={outcome.id} className={`inline-flex items-center gap-1 border px-2.5 py-1 rounded-full text-xs font-medium ${getOutcomeStyle(oi)}`}>
+                      {outcome.label} <span className="opacity-60">·</span> {outcome.totalWagers} wagers
+                    </span>
+                  ))}
                 </div>
+
+                {/* Footer */}
+                <p className="mt-3 text-xs text-gray-400">
+                  {bet._count.wagers} wagers · {bet._count.comments} comments · by {bet.createdBy?.displayName || 'Admin'}
+                </p>
               </div>
-            ))
+              );
+            })}
+            </div>
           )}
         </div>
       )}
+      </div>
     </AdminLayout>
   );
 }

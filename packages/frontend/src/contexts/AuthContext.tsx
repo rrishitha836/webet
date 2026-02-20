@@ -54,6 +54,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (userData.data?.role === 'ADMIN') {
           setAdmin(userData.data);
         }
+      } else {
+        // User endpoint failed — try admin endpoint (admin tokens have type 'admin'
+        // which the user endpoint rejects)
+        try {
+          const adminRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/admin/me`, {
+            credentials: 'include',
+          });
+          
+          if (adminRes.ok) {
+            const adminData = await adminRes.json();
+            setAdmin(adminData.data);
+            setUser(adminData.data);
+          }
+        } catch {
+          // No valid session
+        }
       }
     } catch (error) {
       console.error('Auth check error:', error);

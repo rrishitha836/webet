@@ -100,9 +100,9 @@ export default function AdminLoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-gray-600">
+          {/* <div className="mt-6 text-center text-sm text-gray-600">
             Default credentials: admin@example.com / ChangeMe123!
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

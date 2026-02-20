@@ -84,44 +84,35 @@ router.post('/bets/bulk', authenticateAgent, async (req, res, next) => {
         return res.status(500).json({ success: false, error: 'No admin user found' });
       }
 
-      // Create bet with all required fields
-      const betId = uuidv4();
-      const slug = generateSlug(title);
-      const shortId = generateShortId();
-      const closeTime = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
-      const resolutionCriteria = `Resolves YES if "${title}" comes true. Resolves NO otherwise.`;
-      
-      const bet = await queryOne(
-        `INSERT INTO bets (id, slug, short_id, title, description, resolution_criteria, category, close_time, source, status, created_by, total_pool, participant_count, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::\"BetCategory\", $8, 'AI_GENERATED'::\"BetSource\", 'OPEN'::\"BetStatus\", $9, 0, 0, NOW(), NOW())
-         RETURNING id, title, description, category, close_time, source, status, created_at`,
-        [betId, slug, shortId, title, description, resolutionCriteria, normalizedCategory, closeTime, adminUser.id]
+      // Instead of creating bets directly, create AI suggestion records so
+      // they appear in the admin "Pending Review" list. Admins will review
+      // suggestions and publish them as bets using the existing approve flow.
+      const suggestionId = uuidv4();
+      const safeTitle = (title || '').slice(0, 120); // ai_suggestions.title is varchar(120)
+      const resolutionCriteria = `Resolves YES if "${safeTitle}" comes true. Resolves NO otherwise.`;
+      const suggestedDeadline = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      const outcomesJson = options.map((o: any) => ({ label: o.option }));
+      const confidence = typeof betData.confidence === 'number' ? betData.confidence : 0.75;
+      const sourceLinks = Array.isArray(betData.sourceLinks) ? betData.sourceLinks : (betData.twitter_url ? [betData.twitter_url] : []);
+
+      const suggestion = await queryOne(
+        `INSERT INTO ai_suggestions (id, title, description, outcomes, resolution_criteria, suggested_deadline, category, confidence_score, source_links, status, created_at)
+         VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7::"BetCategory", $8, $9, 'PENDING', NOW())
+         RETURNING id, title, description, outcomes, resolution_criteria, suggested_deadline, category, confidence_score, source_links, status, created_at`,
+        [suggestionId, safeTitle, description, JSON.stringify(outcomesJson), resolutionCriteria, suggestedDeadline, normalizedCategory, confidence, sourceLinks]
       );
 
-      // Create outcomes/options
-      const outcomes = [];
-      for (let i = 0; i < options.length; i++) {
-        const outcomeId = uuidv4();
-        const outcome = await queryOne(
-          `INSERT INTO outcomes (id, bet_id, label, sort_order, total_wagers, total_coins)
-           VALUES ($1, $2, $3, $4, 0, 0)
-           RETURNING id, bet_id, label, sort_order`,
-          [outcomeId, betId, options[i].option, i + 1]
-        );
-        outcomes.push(outcome);
-      }
-
       createdBets.push({
-        id: bet.id,
-        title: bet.title,
-        description: bet.description,
-        category: bet.category,
-        closeTime: bet.close_time,
-        outcomes: outcomes,
+        id: suggestion.id,
+        title: suggestion.title,
+        description: suggestion.description,
+        category: suggestion.category,
+        suggestedDeadline: suggestion.suggested_deadline,
+        outcomes: suggestion.outcomes,
         twitterTrend: twitterTrend || null,
       });
 
-      logger.info(`✅ Created bet: ${title} (${bet.id})`);
+      logger.info(`✅ Created AI suggestion: ${title} (${suggestion.id})`);
     }
 
     logger.info(`🎯 Agent bulk creation complete: ${createdBets.length}/${bets.length} bets created`);

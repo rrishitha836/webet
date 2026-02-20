@@ -363,25 +363,30 @@ router.post('/ai-suggestions/:id/approve', authenticateAdmin, async (req, res, n
     }
 
     // Create a slug and shortId for the new bet
-    const slug = suggestion.title
+    const title = (suggestion.title || '').slice(0, 120); // bets.title is varchar(120)
+    const slug = title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
+      .replace(/^-|-$/g, '')
+      + '-' + Date.now().toString(36);
     const shortId = Math.random().toString(36).substring(2, 8).toUpperCase();
 
     // Create the bet and update suggestion in a transaction
     const result = await transaction(async (client) => {
       const betId = uuidv4();
       
-      // Create the bet
+      // Create the bet (include updated_at = NOW() to satisfy NOT NULL)
       await client.query(
-        `INSERT INTO bets (id, slug, short_id, title, description, resolution_criteria, category, source, status, close_time, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'AI_GENERATED', 'OPEN', $8, $9)`,
-        [betId, slug, shortId, suggestion.title, suggestion.description, suggestion.resolution_criteria, suggestion.category, suggestion.suggested_deadline, admin.id]
+        `INSERT INTO bets (id, slug, short_id, title, description, resolution_criteria, category, source, status, close_time, created_by, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'AI_GENERATED', 'OPEN', $8, $9, NOW(), NOW())`,
+        [betId, slug, shortId, title, suggestion.description, suggestion.resolution_criteria, suggestion.category, suggestion.suggested_deadline, admin.id]
       );
 
-      // Create outcomes
-      const outcomes = suggestion.outcomes || ['Yes', 'No'];
+      // Create outcomes – handle both ["Yes","No"] and [{"label":"Yes"},{"label":"No"}]
+      const rawOutcomes = suggestion.outcomes || ['Yes', 'No'];
+      const outcomes = rawOutcomes.map((o: any) =>
+        typeof o === 'string' ? o : (o.label || o.option || String(o))
+      );
       for (let i = 0; i < outcomes.length; i++) {
         await client.query(
           `INSERT INTO outcomes (id, bet_id, label, sort_order)
@@ -477,7 +482,7 @@ router.post('/execute-agent', authenticateAdmin, async (req, res, next) => {
         prompt: prompt || 'Generate betting suggestions based on the latest Twitter trends',
       }),
     });
-
+    console.log("👾👾👾👾AI agent response:", agentResponse);
     if (!agentResponse.ok) {
       throw new Error(`Agent returned error: ${agentResponse.statusText}`);
     }
