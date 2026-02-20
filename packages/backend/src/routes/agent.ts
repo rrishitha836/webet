@@ -26,8 +26,11 @@ function generateShortId(): string {
 
 // Middleware to authenticate agent requests
 const authenticateAgent = (req: any, res: any, next: any) => {
+
   const apiKey = req.headers['x-api-key'];
-  const expectedKey = process.env.AGENT_API_KEY || 'your-agent-api-key';
+  const expectedKey ="AIzaSyDeaCjKkJ6vjQtmtXeKLFdiT1FMhlAKLYE";
+  console.log('🔑 Agent API key received:', apiKey);
+  console.log('🔑 Expected API key:', expectedKey);
   
   if (!apiKey || apiKey !== expectedKey) {
     return res.status(401).json({

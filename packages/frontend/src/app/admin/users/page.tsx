@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -23,47 +23,55 @@ interface User {
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { admin } = useAuth();
+  const isFirstRender = useRef(true);
+
+  // Debounce search input (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Fetch users
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        const params = new URLSearchParams();
-        if (searchTerm) params.append('search', searchTerm);
-        if (statusFilter !== 'all') params.append('status', statusFilter);
-        params.append('limit', '50');
+  const fetchUsers = useCallback(async (isInitial: boolean) => {
+    try {
+      if (isInitial) setInitialLoading(true);
+      const params = new URLSearchParams();
+      if (debouncedSearch) params.append('search', debouncedSearch);
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+      params.append('limit', '50');
 
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/admin/users?${params.toString()}`,
-          {
-            credentials: 'include',
-          }
-        );
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/users?${params.toString()}`,
+        { credentials: 'include' }
+      );
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch users');
-        }
+      if (!response.ok) throw new Error('Failed to fetch users');
 
-        const data = await response.json();
-        setUsers(data.data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load users');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (admin) {
-      fetchUsers();
+      const data = await response.json();
+      setUsers(data.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load users');
+    } finally {
+      if (isInitial) setInitialLoading(false);
     }
-  }, [admin, searchTerm, statusFilter]);
+  }, [debouncedSearch, statusFilter]);
+
+  useEffect(() => {
+    if (admin) {
+      const isInitial = isFirstRender.current;
+      isFirstRender.current = false;
+      fetchUsers(isInitial);
+    }
+  }, [admin, fetchUsers]);
 
   const getInitials = (name: string) => {
     return name
@@ -74,7 +82,7 @@ export default function AdminUsersPage() {
       .slice(0, 2);
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
@@ -100,16 +108,16 @@ export default function AdminUsersPage() {
 
   return (
     <AdminLayout>
-      <AdminPageHeader 
-        title="Users" 
+      <AdminPageHeader
+        title="Users"
         subtitle="Manage and view all registered users"
         actions={<ViewToggle view={viewMode} onChange={setViewMode} />}
       />
-      
+
       <div className="p-8">
       {/* Filters */}
       <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Search
@@ -126,15 +134,17 @@ export default function AdminUsersPage() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Status
             </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
-              <option value="all">All Users</option>
-              <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
-            </select>
+            <div className="h-[42px]">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="w-full h-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none bg-white"
+              >
+                <option value="all">All Users</option>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -245,7 +255,7 @@ export default function AdminUsersPage() {
         ))}
       </div>
 
-      {users.length === 0 && !loading && (
+      {users.length === 0 && !initialLoading && (
         <div className="text-center py-12 bg-white rounded-lg">
           <svg
             className="w-16 h-16 text-gray-400 mx-auto mb-4"

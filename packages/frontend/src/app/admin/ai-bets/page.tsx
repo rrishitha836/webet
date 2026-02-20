@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/admin/AdminLayout';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import ViewToggle from '@/components/ui/ViewToggle';
@@ -28,14 +27,6 @@ export default function AISuggestionsPage() {
   const [isExecutingAgent, setIsExecutingAgent] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { admin } = useAuth();
-  const router = useRouter();
-
-  // Redirect if not admin
-  useEffect(() => {
-    if (!admin) {
-      router.push('/admin/login');
-    }
-  }, [admin, router]);
 
   // Fetch AI suggestions
   const fetchSuggestions = async () => {
@@ -218,191 +209,219 @@ export default function AISuggestionsPage() {
                 <p className="text-gray-400 text-sm">No pending suggestions — run the AI agent to generate new bets.</p>
               </div>
             ) : (
-              <div className={viewMode === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 gap-4' : 'space-y-3'}>
+              <div className={viewMode === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : 'space-y-5'}>
                 {pendingSuggestions.map((suggestion) => {
                   const isProcessing = processingId === suggestion.id;
-                  const outcomesText = Array.isArray(suggestion.outcomes)
-                    ? suggestion.outcomes.map(o => typeof o === 'string' ? o : o.label).join(', ')
-                    : '';
+                  const outcomesList = Array.isArray(suggestion.outcomes)
+                    ? suggestion.outcomes.map(o => typeof o === 'string' ? o : o.label)
+                    : [];
+                  const outcomeColors = [
+                    'bg-emerald-50 text-emerald-700 ring-emerald-200',
+                    'bg-rose-50 text-rose-700 ring-rose-200',
+                    'bg-sky-50 text-sky-700 ring-sky-200',
+                    'bg-amber-50 text-amber-700 ring-amber-200',
+                    'bg-violet-50 text-violet-700 ring-violet-200',
+                  ];
 
                   if (viewMode === 'list') {
                     return (
                       <div
                         key={suggestion.id}
-                        className="bg-white rounded-2xl border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all p-6"
+                        className="bg-white rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden"
                       >
-                        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                          {/* Left content */}
-                          <div className="flex-1 min-w-0">
-                            {/* Badge row */}
-                            <div className="flex flex-wrap items-center gap-2 mb-3">
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
+                        {/* Purple accent top bar */}
+                        <div className="h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
+                        <div className="p-7">
+                          {/* Top: Badges + Actions */}
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200">
                                 {suggestion.category}
                               </span>
                               {suggestion.confidenceScore != null && (
-                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ring-1 ${
                                   suggestion.confidenceScore >= 0.8
-                                    ? 'bg-green-100 text-green-800'
+                                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
                                     : suggestion.confidenceScore >= 0.5
-                                      ? 'bg-amber-100 text-amber-800'
-                                      : 'bg-red-100 text-red-800'
+                                      ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                                      : 'bg-rose-50 text-rose-700 ring-rose-200'
                                 }`}>
                                   {Math.round(suggestion.confidenceScore * 100)}% confidence
                                 </span>
                               )}
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                                 Pending
                               </span>
                             </div>
+                            <div className="flex items-center gap-2.5 shrink-0">
+                              <button
+                                onClick={() => handleApprove(suggestion.id)}
+                                disabled={isProcessing}
+                                className="inline-flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-all disabled:opacity-50 shadow-sm hover:shadow-md"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                {isProcessing ? 'Publishing…' : 'Publish'}
+                              </button>
+                              <button
+                                onClick={() => handleReject(suggestion.id)}
+                                disabled={isProcessing}
+                                className="inline-flex items-center gap-2 bg-white text-red-600 border border-red-200 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-red-50 hover:border-red-300 transition-all disabled:opacity-50"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                {isProcessing ? 'Rejecting…' : 'Reject'}
+                              </button>
+                            </div>
+                          </div>
 
-                            {/* Title */}
-                            <h3 className="text-lg font-bold text-gray-900 leading-snug mb-1.5">{suggestion.title}</h3>
+                          {/* Title */}
+                          <h3 className="text-xl font-semibold text-gray-900 leading-snug mb-2">{suggestion.title}</h3>
 
-                            {/* Description */}
-                            <p className="text-sm text-gray-500 leading-relaxed mb-5">{suggestion.description}</p>
+                          {/* Description */}
+                          <p className="text-sm text-gray-500 leading-relaxed mb-6 line-clamp-2">{suggestion.description}</p>
 
-                            {/* Metadata footer */}
-                            <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
-                              <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <div>
-                                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Close Time</p>
-                                  <p className="text-sm font-medium text-gray-800">{new Date(suggestion.suggestedDeadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                                </div>
+                          {/* Stats Row */}
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                            <div className="rounded-xl bg-gray-50 border border-gray-100 p-3.5 flex items-center gap-3">
+                              <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-bold text-gray-800">{new Date(suggestion.suggestedDeadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Close Time</p>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-                                </svg>
-                                <div>
-                                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Outcomes</p>
-                                  <p className="text-sm font-medium text-gray-800">{outcomesText}</p>
-                                </div>
+                            </div>
+                            <div className="rounded-xl bg-gray-50 border border-gray-100 p-3.5 flex items-center gap-3">
+                              <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-bold text-gray-800">{new Date(suggestion.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Created</p>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                                </svg>
-                                <div>
-                                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Created</p>
-                                  <p className="text-sm font-medium text-gray-800">{new Date(suggestion.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                                </div>
+                            </div>
+                            <div className="rounded-xl bg-gray-50 border border-gray-100 p-3.5 flex items-center gap-3">
+                              <svg className="w-4 h-4 text-purple-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-bold text-gray-800">{outcomesList.length} options</p>
+                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Outcomes</p>
                               </div>
                             </div>
                           </div>
 
-                          {/* Right actions */}
-                          <div className="flex sm:flex-col items-center gap-3 shrink-0 sm:pt-6">
-                            <button
-                              onClick={() => handleApprove(suggestion.id)}
-                              disabled={isProcessing}
-                              className="inline-flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 shadow-sm hover:shadow-md"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                              {isProcessing ? 'Publishing…' : 'Publish'}
-                            </button>
-                            <button
-                              onClick={() => handleReject(suggestion.id)}
-                              disabled={isProcessing}
-                              className="inline-flex items-center gap-2 bg-white text-red-600 border-2 border-red-200 px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-red-50 hover:border-red-300 transition-colors disabled:opacity-50"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                              {isProcessing ? 'Rejecting…' : 'Reject'}
-                            </button>
+                          {/* Outcomes chips */}
+                          <div className="pt-5 border-t border-gray-100">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Outcomes</p>
+                            <div className="flex flex-wrap gap-2">
+                              {outcomesList.map((label, oi) => (
+                                <span
+                                  key={oi}
+                                  className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ring-1 ${outcomeColors[oi % outcomeColors.length]}`}
+                                >
+                                  {label}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
                     );
                   }
 
+                  /* ─── GRID VIEW CARD ─── */
                   return (
                     <div
                       key={suggestion.id}
-                      className="bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all p-5"
+                      className="bg-white rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col"
                     >
-                      {/* Top row: title + actions */}
-                      <div className="flex flex-col sm:flex-row sm:items-start gap-3 mb-4">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-base font-semibold text-gray-900 leading-snug">{suggestion.title}</h3>
-                          <div className="flex flex-wrap items-center gap-2 mt-2">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
-                              {suggestion.category}
+                      {/* Purple accent top bar */}
+                      <div className="h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
+                      <div className="p-6 flex flex-col flex-1">
+                        {/* Badge row */}
+                        <div className="flex flex-wrap items-center gap-2 mb-4">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200">
+                            {suggestion.category}
+                          </span>
+                          {suggestion.confidenceScore != null && (
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ring-1 ${
+                              suggestion.confidenceScore >= 0.8
+                                ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                                : suggestion.confidenceScore >= 0.5
+                                  ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                                  : 'bg-rose-50 text-rose-700 ring-rose-200'
+                            }`}>
+                              {Math.round(suggestion.confidenceScore * 100)}%
                             </span>
-                            {suggestion.confidenceScore != null && (
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                                suggestion.confidenceScore >= 0.8
-                                  ? 'bg-green-50 text-green-700 border-green-100'
-                                  : suggestion.confidenceScore >= 0.5
-                                    ? 'bg-amber-50 text-amber-700 border-amber-100'
-                                    : 'bg-red-50 text-red-700 border-red-100'
-                              }`}>
-                                {Math.round(suggestion.confidenceScore * 100)}% confidence
-                              </span>
-                            )}
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span>
-                              Pending
-                            </span>
+                          )}
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            Pending
+                          </span>
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-lg font-semibold text-gray-900 leading-snug mb-2 line-clamp-2">{suggestion.title}</h3>
+
+                        {/* Description */}
+                        <p className="text-sm text-gray-500 leading-relaxed mb-5 line-clamp-2">{suggestion.description}</p>
+
+                        {/* 2-col Stat Boxes */}
+                        <div className="grid grid-cols-2 gap-3 mb-5">
+                          <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 flex items-center gap-2.5">
+                            <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div>
+                              <p className="text-sm font-bold text-gray-800">{new Date(suggestion.suggestedDeadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Closes</p>
+                            </div>
+                          </div>
+                          <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 flex items-center gap-2.5">
+                            <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                            </svg>
+                            <div>
+                              <p className="text-sm font-bold text-gray-800">{new Date(suggestion.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Created</p>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
+
+                        {/* Outcomes Chips */}
+                        <div className="pt-4 border-t border-gray-100 mb-5">
+                          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">Outcomes</p>
+                          <div className="flex flex-wrap gap-2">
+                            {outcomesList.map((label, oi) => (
+                              <span
+                                key={oi}
+                                className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ring-1 ${outcomeColors[oi % outcomeColors.length]}`}
+                              >
+                                {label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2.5 mt-auto pt-4 border-t border-gray-100">
                           <button
                             onClick={() => handleApprove(suggestion.id)}
                             disabled={isProcessing}
-                            className="inline-flex items-center gap-1.5 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 shadow-sm"
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-all disabled:opacity-50 shadow-sm"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                             {isProcessing ? 'Publishing…' : 'Publish'}
                           </button>
                           <button
                             onClick={() => handleReject(suggestion.id)}
                             disabled={isProcessing}
-                            className="inline-flex items-center gap-1.5 bg-white text-red-600 border border-red-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 bg-white text-red-600 border border-red-200 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-red-50 hover:border-red-300 transition-all disabled:opacity-50"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                             {isProcessing ? 'Rejecting…' : 'Reject'}
                           </button>
-                        </div>
-                      </div>
-
-                      {/* Description */}
-                      <p className="text-sm text-gray-600 mb-4 leading-relaxed">{suggestion.description}</p>
-
-                      {/* Metadata grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-gray-50 rounded-lg p-3.5 text-sm">
-                        <div className="flex items-start gap-2">
-                          <svg className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <div>
-                            <p className="text-gray-400 text-xs font-medium uppercase tracking-wider">Close Time</p>
-                            <p className="text-gray-700 font-medium">{new Date(suggestion.suggestedDeadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <svg className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-                          </svg>
-                          <div>
-                            <p className="text-gray-400 text-xs font-medium uppercase tracking-wider">Outcomes</p>
-                            <p className="text-gray-700 font-medium">{outcomesText}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <svg className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                          </svg>
-                          <div>
-                            <p className="text-gray-400 text-xs font-medium uppercase tracking-wider">Created</p>
-                            <p className="text-gray-700 font-medium">{new Date(suggestion.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                          </div>
                         </div>
                       </div>
                     </div>

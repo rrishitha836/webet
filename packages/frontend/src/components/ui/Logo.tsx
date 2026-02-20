@@ -1,18 +1,35 @@
 import React from 'react';
 
 export default function Logo({ className = '' }: { className?: string }) {
-  // Circular gradient badge with a compact "trend up" icon inside.
-  // Used in the admin header — replaces the previous 'W' mark.
   return (
     <div
-      className={"w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white " + className}
+      className={
+        "w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center shadow-md " +
+        "bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 " +
+        className
+      }
       aria-hidden
     >
+      {/* ShowChart-style: clean ascending line + bar accent */}
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden>
-        {/* zig-zag trend line */}
-        <polyline points="5 15 9 11 13 15 18 10" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        {/* arrowhead at the end pointing up-right */}
-        <path d="M17.8 8.2L20.8 8.2L20.8 11.2" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Ascending trend line */}
+        <polyline
+          points="3 17 8 11 13 14 21 5"
+          fill="none"
+          stroke="white"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {/* Arrowhead tip */}
+        <polyline
+          points="16 5 21 5 21 10"
+          fill="none"
+          stroke="white"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     </div>
   );

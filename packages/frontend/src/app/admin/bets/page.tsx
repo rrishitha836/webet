@@ -238,14 +238,14 @@ export default function AdminBetsPage() {
               </Link>
             </div>
           ) : (
-            <div className={viewMode === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 gap-5' : 'space-y-4'}>
+            <div className={viewMode === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : 'space-y-5'}>
             {bets.map((bet, _idx) => {
               const statusStyle = getStatusStyle(bet.status);
               return viewMode === 'list' ? (
               /* ─── LIST VIEW CARD ─── */
-              <div key={bet.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6">
+              <Link key={bet.id} href={`/admin/bets/${bet.id}`} className="block bg-white rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 p-7 group">
                 {/* Badges */}
-                <div className="flex flex-wrap items-center gap-2 mb-3">
+                <div className="flex flex-wrap items-center gap-2 mb-4">
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${statusStyle.bg}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`} />
                     {bet.status}
@@ -259,55 +259,59 @@ export default function AdminBetsPage() {
                 </div>
 
                 {/* Title + Description */}
-                <h3 className="text-lg font-bold text-gray-900 leading-snug mb-1">{bet.title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed mb-5 line-clamp-2">{bet.description}</p>
+                <h3 className="text-xl font-semibold text-gray-900 leading-snug mb-2 group-hover:text-indigo-700 transition-colors">{bet.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed mb-6 line-clamp-2">{bet.description}</p>
 
-                {/* Metadata Row */}
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mb-5">
-                  {/* Pool */}
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                {/* Metadata Stats Row */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                  <div className="rounded-xl bg-gray-50 border border-gray-100 p-3.5 flex items-center gap-3">
+                    <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Pool</span>
-                    <span className="text-sm font-bold text-gray-800">{bet.totalPool} coins</span>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">{bet.totalPool}</p>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Pool</p>
+                    </div>
                   </div>
-                  {/* Participants */}
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <div className="rounded-xl bg-gray-50 border border-gray-100 p-3.5 flex items-center gap-3">
+                    <svg className="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
                     </svg>
-                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Participants</span>
-                    <span className="text-sm font-bold text-gray-800">{bet.participantCount}</span>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">{bet.participantCount}</p>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Participants</p>
+                    </div>
                   </div>
-                  {/* Closes */}
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <div className="rounded-xl bg-gray-50 border border-gray-100 p-3.5 flex items-center gap-3">
+                    <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Closes</span>
-                    <span className="text-sm font-bold text-gray-800">{new Date(bet.closeTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">{new Date(bet.closeTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Closes</p>
+                    </div>
                   </div>
-                  {/* Created */}
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <div className="rounded-xl bg-gray-50 border border-gray-100 p-3.5 flex items-center gap-3">
+                    <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                     </svg>
-                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Created</span>
-                    <span className="text-sm font-bold text-gray-800">{new Date(bet.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">{new Date(bet.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Created</p>
+                    </div>
                   </div>
                 </div>
 
                 {/* Outcomes + Footer */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-gray-100">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-5 border-t border-gray-100">
                   <div className="flex flex-wrap gap-2">
                     {bet.outcomes.map((outcome, oi) => (
                       <span
                         key={outcome.id}
-                        className={`inline-flex items-center gap-1.5 border px-3 py-1.5 rounded-full text-xs font-semibold ${getOutcomeStyle(oi)}`}
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold ${getOutcomeStyle(oi)}`}
                       >
                         {outcome.label}
-                        <span className="opacity-60">·</span>
+                        <span className="opacity-50">·</span>
                         <span>{outcome.totalWagers} wagers</span>
                       </span>
                     ))}
@@ -316,65 +320,73 @@ export default function AdminBetsPage() {
                     {bet._count.wagers} wagers · {bet._count.comments} comments · by {bet.createdBy?.displayName || 'Admin'}
                   </p>
                 </div>
-              </div>
+              </Link>
               ) : (
               /* ─── GRID VIEW CARD ─── */
-              <div key={bet.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6 flex flex-col">
+              <Link key={bet.id} href={`/admin/bets/${bet.id}`} className="block bg-white rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 p-6 sm:p-7 flex flex-col group">
                 {/* Badges */}
-                <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${statusStyle.bg}`}>
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusStyle.bg}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`} />
                     {bet.status}
                   </span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getSourceStyle(bet.source)}`}>
+                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getSourceStyle(bet.source)}`}>
                     {bet.source === 'AI_GENERATED' ? '🤖 AI' : '✏️ Manual'}
                   </span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getCategoryStyle()}`}>
+                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getCategoryStyle()}`}>
                     {bet.category}
                   </span>
                 </div>
 
                 {/* Title + Description */}
-                <h3 className="text-base font-bold text-gray-900 leading-snug line-clamp-2 mb-1">{bet.title}</h3>
-                <p className="text-sm text-gray-500 line-clamp-2 mb-4">{bet.description}</p>
+                <h3 className="text-lg font-semibold text-gray-900 leading-snug line-clamp-2 mb-2 group-hover:text-indigo-700 transition-colors">{bet.title}</h3>
+                <p className="text-sm text-gray-500 line-clamp-2 mb-5">{bet.description}</p>
 
                 {/* 2x2 Stat Boxes */}
-                <div className="grid grid-cols-2 gap-2.5 mb-4">
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 flex flex-col items-start gap-1">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  <div className="rounded-xl bg-gray-50 border border-gray-100 p-3.5 flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <p className="text-sm font-bold text-gray-800">{bet.totalPool} coins</p>
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Pool</p>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">{bet.totalPool}</p>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Pool</p>
+                    </div>
                   </div>
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 flex flex-col items-start gap-1">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <div className="rounded-xl bg-gray-50 border border-gray-100 p-3.5 flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
                     </svg>
-                    <p className="text-sm font-bold text-gray-800">{bet.participantCount}</p>
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Participants</p>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">{bet.participantCount}</p>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Participants</p>
+                    </div>
                   </div>
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 flex flex-col items-start gap-1">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <div className="rounded-xl bg-gray-50 border border-gray-100 p-3.5 flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <p className="text-sm font-bold text-gray-800">{new Date(bet.closeTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Closes</p>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">{new Date(bet.closeTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Closes</p>
+                    </div>
                   </div>
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 flex flex-col items-start gap-1">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <div className="rounded-xl bg-gray-50 border border-gray-100 p-3.5 flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                     </svg>
-                    <p className="text-sm font-bold text-gray-800">{new Date(bet.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Created</p>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">{new Date(bet.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Created</p>
+                    </div>
                   </div>
                 </div>
 
                 {/* Outcomes */}
-                <div className="flex flex-wrap gap-1.5 mt-auto pt-3 border-t border-gray-100">
+                <div className="flex flex-wrap gap-2 mt-auto pt-4 border-t border-gray-100">
                   {bet.outcomes.map((outcome, oi) => (
-                    <span key={outcome.id} className={`inline-flex items-center gap-1 border px-2.5 py-1 rounded-full text-xs font-medium ${getOutcomeStyle(oi)}`}>
-                      {outcome.label} <span className="opacity-60">·</span> {outcome.totalWagers} wagers
+                    <span key={outcome.id} className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold ${getOutcomeStyle(oi)}`}>
+                      {outcome.label} <span className="opacity-50">·</span> {outcome.totalWagers}
                     </span>
                   ))}
                 </div>
@@ -383,7 +395,7 @@ export default function AdminBetsPage() {
                 <p className="mt-3 text-xs text-gray-400">
                   {bet._count.wagers} wagers · {bet._count.comments} comments · by {bet.createdBy?.displayName || 'Admin'}
                 </p>
-              </div>
+              </Link>
               );
             })}
             </div>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import AdminLayout from '@/components/admin/AdminLayout';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import BoltIcon from '@mui/icons-material/Bolt';
+import HourglassTopIcon from '@mui/icons-material/HourglassTop';
 
 interface DashboardStats {
   totalBets: number;
@@ -81,55 +82,11 @@ export default function AdminDashboardPage() {
   return (
     <AdminLayout>
       <AdminPageHeader title="Dashboard" subtitle="Welcome to WeBet Admin Panel" />
-      <div className="p-8">
+      <div className="px-6 md:px-8 py-6">
 
-      {/* Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-  <Link href="/admin/ai-bets" className="bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-lg p-8 text-white hover:shadow-lg transition-shadow w-full h-44 flex items-center justify-between">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-semibold text-white">Review AI Bets</h3>
-              <p className="text-sm text-indigo-100 mt-1">{stats?.pendingAI || 0} bets pending review</p>
-            </div>
-            <div className="ml-6 bg-white bg-opacity-20 rounded-md p-3 flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-            </svg>
-            </div>
-          </div>
-        </Link>
-
-  <Link href="/admin/bets/create" className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg p-8 text-white hover:shadow-lg transition-shadow w-full h-44 flex items-center justify-between">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-semibold text-white">Create New Bet</h3>
-              <p className="text-sm text-teal-100 mt-1">Manually create a bet</p>
-            </div>
-            <div className="ml-6 bg-white bg-opacity-20 rounded-md p-3 flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            </div>
-          </div>
-        </Link>
-
-  <Link href="/admin/categories" className="bg-gradient-to-r from-amber-500 to-amber-600 rounded-lg p-8 text-white hover:shadow-lg transition-shadow w-full h-44 flex items-center justify-between">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-semibold text-white">View Categories</h3>
-              <p className="text-sm text-amber-100 mt-1">Manage bet categories</p>
-            </div>
-            <div className="ml-6 bg-white bg-opacity-20 rounded-md p-3 flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
-            </svg>
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+      {/* Stats Cards */}
+      {/* Desktop: single 5-col row | Mobile: Total Bets full-width, then 2x2 grid */}
+      <div className="hidden md:grid md:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
         <Link href="/admin/bets" className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
           <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
             <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -139,7 +96,6 @@ export default function AdminDashboardPage() {
           <p className="text-2xl font-bold text-gray-900">{stats?.totalBets || 0}</p>
           <p className="text-sm text-gray-600">Total Bets</p>
         </Link>
-
         <Link href="/admin/ai-bets" className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
           <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-2">
             <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -149,9 +105,6 @@ export default function AdminDashboardPage() {
           <p className="text-2xl font-bold text-gray-900">{stats?.pendingAI || 0}</p>
           <p className="text-sm text-gray-600">Pending</p>
         </Link>
-
-        {/* Approved card removed per request */}
-
         <Link href="/admin/bets?status=OPEN" className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
           <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
             <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -161,7 +114,6 @@ export default function AdminDashboardPage() {
           <p className="text-2xl font-bold text-gray-900">{stats?.publishedBets || 0}</p>
           <p className="text-sm text-gray-600">Published</p>
         </Link>
-
         <Link href="/admin/ai-suggestions?status=REJECTED" className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
           <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-2">
             <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -171,20 +123,71 @@ export default function AdminDashboardPage() {
           <p className="text-2xl font-bold text-gray-900">{stats?.rejectedAI || 0}</p>
           <p className="text-sm text-gray-600">Rejected</p>
         </Link>
-
         <Link href="/admin/bets?status=CLOSED" className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
           <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
+            <HourglassTopIcon sx={{ fontSize: 20, color: '#4b5563' }} />
           </div>
           <p className="text-2xl font-bold text-gray-900">{stats?.expiredBets || 0}</p>
           <p className="text-sm text-gray-600">Closed</p>
         </Link>
       </div>
 
-      {/* Bets by Source - Separate Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Mobile Stats Layout */}
+      <div className="flex flex-col gap-4 mb-8 md:hidden">
+        {/* Row 1: Total Bets - full width */}
+        <Link href="/admin/bets" className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
+          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+            </svg>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{stats?.totalBets || 0}</p>
+          <p className="text-sm text-gray-600">Total Bets</p>
+        </Link>
+        {/* Row 2: Pending + Published */}
+        <div className="grid grid-cols-2 gap-4">
+          <Link href="/admin/ai-bets" className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
+            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+              <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{stats?.pendingAI || 0}</p>
+            <p className="text-sm text-gray-600">Pending</p>
+          </Link>
+          <Link href="/admin/bets?status=OPEN" className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{stats?.publishedBets || 0}</p>
+            <p className="text-sm text-gray-600">Published</p>
+          </Link>
+        </div>
+        {/* Row 3: Rejected + Closed */}
+        <div className="grid grid-cols-2 gap-4">
+          <Link href="/admin/ai-suggestions?status=REJECTED" className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
+            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{stats?.rejectedAI || 0}</p>
+            <p className="text-sm text-gray-600">Rejected</p>
+          </Link>
+          <Link href="/admin/bets?status=CLOSED" className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+              <HourglassTopIcon sx={{ fontSize: 20, color: '#4b5563' }} />
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{stats?.expiredBets || 0}</p>
+            <p className="text-sm text-gray-600">Closed</p>
+          </Link>
+        </div>
+      </div>
+
+      {/* Bets by Source */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* AI Generated Card */}
         <Link href="/admin/bets?source=AI_GENERATED" className="bg-white rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer border border-gray-200">
           <div className="flex items-center justify-between mb-4">

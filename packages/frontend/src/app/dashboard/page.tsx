@@ -1,13 +1,19 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
 import { useAllUserBets, useUserProfile, useActiveBets } from '@/hooks/useApi';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Card } from '@/components/ui/Card';
 import { BetCard } from '@/components/bets/BetCard';
 import { BetDetailsModal } from '@/components/bets/BetDetailsModal';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ViewToggle from '@/components/ui/ViewToggle';
+import TravelExploreIcon from '@mui/icons-material/TravelExplore';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import BoltIcon from '@mui/icons-material/Bolt';
+import HourglassTopIcon from '@mui/icons-material/HourglassTop';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import HistoryIcon from '@mui/icons-material/History';
 
 // ── Color helpers ──
 function getOutcomeColor(label: string): { bg: string; text: string; border: string; bar: string } {
@@ -54,7 +60,11 @@ function getBetStatusBadge(status: string) {
 type MyBetsFilter = 'ACTIVE' | 'PENDING' | 'COMPLETED' | 'HISTORY';
 
 function DashboardContent() {
-  const [activeTab, setActiveTab] = useState<'MY_BETS' | 'ACTIVE_BETS'>('ACTIVE_BETS');
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const initialTab = tabFromUrl === 'my-bets' ? 'MY_BETS' : 'ACTIVE_BETS';
+
+  const [activeTab, setActiveTabState] = useState<'MY_BETS' | 'ACTIVE_BETS'>(initialTab);
   const [myBetsFilter, setMyBetsFilter] = useState<MyBetsFilter>('ACTIVE');
   const [activeBetsCategory, setActiveBetsCategory] = useState<string>('');
   const [selectedBetId, setSelectedBetId] = useState<string | null>(null);
@@ -70,6 +80,13 @@ function DashboardContent() {
   });
   const { data: profile } = useUserProfile();
   const router = useRouter();
+
+  // Sync tab to URL
+  const setActiveTab = useCallback((tab: 'MY_BETS' | 'ACTIVE_BETS') => {
+    setActiveTabState(tab);
+    const url = tab === 'MY_BETS' ? '/dashboard?tab=my-bets' : '/dashboard';
+    router.replace(url, { scroll: false });
+  }, [router]);
 
   // Refetch when switching to My Bets
   useEffect(() => {
@@ -125,16 +142,16 @@ function DashboardContent() {
   }), [activeBetsList, pendingBetsList, completedBetsList, allBets]);
 
   // ── Tab config ──
-  const mainTabs = [
-    { key: 'ACTIVE_BETS' as const, label: 'Browse Bets', icon: '🎯' },
-    { key: 'MY_BETS' as const, label: 'My Bets Dashboard', icon: '📊' },
+  const mainTabs: { key: 'ACTIVE_BETS' | 'MY_BETS'; label: string; icon: React.ReactNode }[] = [
+    { key: 'ACTIVE_BETS' as const, label: 'Browse Bets', icon: <TravelExploreIcon fontSize="small" /> },
+    { key: 'MY_BETS' as const, label: 'My Bets Dashboard', icon: <AssessmentIcon fontSize="small" /> },
   ];
 
-  const myBetsTabs: { key: MyBetsFilter; label: string; description: string; icon: string }[] = [
-    { key: 'ACTIVE', label: 'Active', description: 'Open bets you\'ve joined', icon: '🎲' },
-    { key: 'PENDING', label: 'Pending Results', description: 'Closed bets awaiting resolution', icon: '⏳' },
-    { key: 'COMPLETED', label: 'Completed', description: 'Resolved bets with outcomes', icon: '✅' },
-    { key: 'HISTORY', label: 'History', description: 'Full chronological log', icon: '📚' },
+  const myBetsTabs: { key: MyBetsFilter; label: string; description: string; icon: React.ReactNode }[] = [
+    { key: 'ACTIVE', label: 'Active', description: 'Open bets you\'ve joined', icon: <BoltIcon fontSize="small" /> },
+    { key: 'PENDING', label: 'Pending Results', description: 'Closed bets awaiting resolution', icon: <HourglassTopIcon fontSize="small" /> },
+    { key: 'COMPLETED', label: 'Completed', description: 'Resolved bets with outcomes', icon: <TaskAltIcon fontSize="small" /> },
+    { key: 'HISTORY', label: 'History', description: 'Full chronological log', icon: <HistoryIcon fontSize="small" /> },
   ];
 
   const categories = ['ALL', 'SPORTS', 'POLITICS', 'ENTERTAINMENT', 'TECHNOLOGY', 'CULTURE', 'OTHER'];
@@ -176,7 +193,7 @@ function DashboardContent() {
                 </svg>
               </div>
               <div className="flex flex-col justify-center h-8 md:h-10">
-                <h1 className="text-xl md:text-3xl font-semibold tracking-tight text-slate-900">We Bet</h1>
+                <h1 className="text-xl md:text-3xl font-semibold tracking-tight text-slate-900">WeBet</h1>
                 <p className="text-sm text-gray-500 mt-1.5">Track your bets and performance</p>
               </div>
             </div>
@@ -498,7 +515,7 @@ function DashboardContent() {
             ) : (
               /* Empty state */
               <div className="bg-white rounded-xl border border-gray-200 p-8 sm:p-12 text-center">
-                <span className="text-4xl sm:text-5xl block mb-4">
+                <span className="w-12 h-12 flex items-center justify-center mx-auto mb-4 bg-gray-100 rounded-xl text-gray-400">
                   {myBetsTabs.find(t => t.key === myBetsFilter)?.icon}
                 </span>
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
@@ -605,7 +622,9 @@ function DashboardContent() {
 export default function DashboardPage() {
   return (
     <ProtectedRoute>
-      <DashboardContent />
+      <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>}>
+        <DashboardContent />
+      </Suspense>
     </ProtectedRoute>
   );
 }
