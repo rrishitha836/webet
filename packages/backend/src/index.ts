@@ -13,7 +13,7 @@ import passport from 'passport';
 import { logger } from './config/logger';
 import { rateLimiter } from './config/rateLimiter';
 import { corsOptions } from './config/cors';
-import { testConnection } from './lib/db';
+import { testConnection, query } from './lib/db';
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -23,12 +23,13 @@ import gameRoutes from './routes/games';
 import betRoutes from './routes/bets';
 import webhookRoutes from './routes/webhooks';
 import agentRoutes from './routes/agent';
+import tradingRoutes from './routes/trading';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 import { setupPassport } from './config/passport';
-import { setupSocket } from './config/socket';
+import { setupSocket, SocketService } from './config/socket';
 
 // Load environment variables
 dotenv.config();
@@ -90,6 +91,7 @@ async function startServer() {
     app.use('/api/bets', betRoutes);
     app.use('/api/webhooks', webhookRoutes);
     app.use('/api/agent', agentRoutes);
+    app.use('/api/trading', tradingRoutes);
     
     // Error handling middleware
     app.use(notFound);
@@ -101,9 +103,29 @@ async function startServer() {
       logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
 
+    // Auto-close expired markets every 60 seconds
+    const autoCloseInterval = setInterval(async () => {
+      try {
+        const result = await query(
+          `UPDATE bets SET status = 'CLOSED', updated_at = NOW()
+           WHERE status = 'OPEN' AND close_time < NOW()
+           RETURNING id, title`
+        );
+        if (result.rows.length > 0) {
+          logger.info(`Auto-closed ${result.rows.length} expired market(s): ${result.rows.map((r: any) => r.title).join(', ')}`);
+          for (const row of result.rows) {
+            SocketService.emitBetUpdate(row.id, { status: 'CLOSED' });
+          }
+        }
+      } catch (err) {
+        logger.error('Auto-close cron error:', err);
+      }
+    }, 60_000);
+
     // Graceful shutdown
     process.on('SIGTERM', () => {
       logger.info('SIGTERM received, shutting down gracefully');
+      clearInterval(autoCloseInterval);
       server.close(() => {
         logger.info('Server closed');
         process.exit(0);

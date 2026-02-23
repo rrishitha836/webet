@@ -11,7 +11,7 @@ const router: RouterType = Router();
 // GET /api/bets - List open bets (paginated, filterable)
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
-    const { category, status = 'OPEN', cursor, limit = '20', sort = 'trending' } = req.query;
+    const { category, status = 'OPEN', cursor, limit = '20', sort = 'trending', search } = req.query;
     const limitNum = parseInt(limit as string, 10);
 
     let whereClause = '1=1';
@@ -30,16 +30,23 @@ router.get('/', optionalAuth, async (req, res, next) => {
       paramIndex++;
     }
 
+    if (search && typeof search === 'string' && search.trim()) {
+      whereClause += ` AND (b.title ILIKE $${paramIndex} OR b.description ILIKE $${paramIndex})`;
+      params.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
     if (cursor) {
       whereClause += ` AND b.created_at < (SELECT created_at FROM bets WHERE id = $${paramIndex})`;
       params.push(cursor);
       paramIndex++;
     }
 
-    // Exclude bets where the authenticated user has already placed a wager
+    // Exclude bets where the authenticated user has already traded (via wagers or LMSR shares)
     if (req.user) {
       const user = req.user as any;
       whereClause += ` AND NOT EXISTS (SELECT 1 FROM wagers w WHERE w.bet_id = b.id AND w.user_id = $${paramIndex})`;
+      whereClause += ` AND NOT EXISTS (SELECT 1 FROM user_shares us WHERE us.bet_id = b.id AND us.user_id = $${paramIndex} AND us.shares > 0.001)`;
       params.push(user.id);
       paramIndex++;
     }
@@ -58,7 +65,8 @@ router.get('/', optionalAuth, async (req, res, next) => {
         COALESCE(json_agg(
           json_build_object(
             'id', o.id, 'label', o.label, 
-            'totalWagers', o.total_wagers, 'totalCoins', o.total_coins, 'sortOrder', o.sort_order
+            'totalWagers', o.total_wagers, 'totalCoins', o.total_coins, 'sortOrder', o.sort_order,
+            'currentPrice', o.current_price, 'sharesQty', o.shares_qty
           ) ORDER BY o.sort_order
         ) FILTER (WHERE o.id IS NOT NULL), '[]') as outcomes
        FROM bets b
@@ -83,6 +91,11 @@ router.get('/', optionalAuth, async (req, res, next) => {
       totalPool: row.total_pool,
       participantCount: row.participant_count,
       createdAt: row.created_at,
+      // LMSR fields
+      liquidityB: row.liquidity_b ? parseFloat(row.liquidity_b) : null,
+      totalVolume: row.total_volume ? parseFloat(row.total_volume) : 0,
+      outcomeShares: row.outcome_shares || [],
+      marketType: row.market_type || 'PREDICTION',
       outcomes: row.outcomes,
       createdBy: {
         displayName: row.creator_name,
@@ -112,7 +125,12 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
         b.*,
         u.display_name as creator_name, u.avatar_url as creator_avatar,
         (SELECT COUNT(*) FROM wagers WHERE bet_id = b.id) as wager_count,
-        (SELECT COUNT(*) FROM comments WHERE bet_id = b.id AND is_deleted = false) as comment_count
+        (SELECT COUNT(*) FROM comments WHERE bet_id = b.id AND is_deleted = false) as comment_count,
+        (SELECT COUNT(DISTINCT user_id) FROM (
+          SELECT user_id FROM wagers WHERE bet_id = b.id
+          UNION
+          SELECT user_id FROM user_shares WHERE bet_id = b.id AND shares > 0.001
+        ) sub) as total_participants
        FROM bets b
        LEFT JOIN users u ON b.created_by = u.id
        WHERE b.id = $1`,
@@ -143,15 +161,25 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
       category: bet.category,
       status: bet.status,
       closeTime: bet.close_time,
-      totalPool: bet.total_pool,
-      participantCount: bet.participant_count,
+      totalPool: Math.max(
+        parseFloat(bet.total_pool) || 0,
+        parseFloat(bet.total_volume) || 0
+      ),
+      participantCount: parseInt(bet.total_participants) || bet.participant_count || 0,
       createdAt: bet.created_at,
+      // LMSR prediction market fields
+      liquidityB: bet.liquidity_b ? parseFloat(bet.liquidity_b) : null,
+      totalVolume: bet.total_volume ? parseFloat(bet.total_volume) : 0,
+      outcomeShares: bet.outcome_shares || [],
+      marketType: bet.market_type || 'PREDICTION',
       outcomes: outcomesResult.rows.map((o: any) => ({
         id: o.id,
         label: o.label,
         totalWagers: o.total_wagers,
         totalCoins: o.total_coins,
         sortOrder: o.sort_order,
+        currentPrice: o.current_price ? parseFloat(o.current_price) : null,
+        sharesQty: o.shares_qty ? parseFloat(o.shares_qty) : 0,
       })),
       createdBy: {
         displayName: bet.creator_name,
@@ -160,12 +188,58 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
       _count: {
         wagers: parseInt(bet.wager_count),
         comments: parseInt(bet.comment_count),
+        participants: parseInt(bet.total_participants) || bet.participant_count || 0,
       },
     };
 
     res.json({
       success: true,
       data: betData,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/bets/:id/related - Get related markets (same category, excluding self)
+router.get('/:id/related', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const bet = await queryOne('SELECT category FROM bets WHERE id = $1', [id]);
+    if (!bet) {
+      return res.status(404).json({ success: false, error: { message: 'Bet not found' } });
+    }
+
+    const result = await query(
+      `SELECT b.id, b.title, b.slug, b.short_id, b.category, b.status, b.close_time, b.participant_count,
+              b.total_volume,
+              COALESCE(json_agg(
+                json_build_object('id', o.id, 'label', o.label, 'currentPrice', o.current_price)
+                ORDER BY o.sort_order
+              ) FILTER (WHERE o.id IS NOT NULL), '[]') as outcomes
+       FROM bets b
+       LEFT JOIN outcomes o ON b.id = o.bet_id
+       WHERE b.category = $1 AND b.id != $2 AND b.status = 'OPEN'
+       GROUP BY b.id
+       ORDER BY b.participant_count DESC
+       LIMIT 4`,
+      [bet.category, id]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows.map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        slug: r.slug,
+        shortId: r.short_id,
+        category: r.category,
+        status: r.status,
+        closeTime: r.close_time,
+        participantCount: r.participant_count,
+        totalVolume: r.total_volume ? parseFloat(r.total_volume) : 0,
+        outcomes: r.outcomes,
+      })),
     });
   } catch (error) {
     next(error);
@@ -184,7 +258,12 @@ router.get('/slug/:slugWithId', optionalAuth, async (req, res, next) => {
         b.*,
         u.display_name as creator_name, u.avatar_url as creator_avatar,
         (SELECT COUNT(*) FROM wagers WHERE bet_id = b.id) as wager_count,
-        (SELECT COUNT(*) FROM comments WHERE bet_id = b.id AND is_deleted = false) as comment_count
+        (SELECT COUNT(*) FROM comments WHERE bet_id = b.id AND is_deleted = false) as comment_count,
+        (SELECT COUNT(DISTINCT user_id) FROM (
+          SELECT user_id FROM wagers WHERE bet_id = b.id
+          UNION
+          SELECT user_id FROM user_shares WHERE bet_id = b.id AND shares > 0.001
+        ) sub) as total_participants
        FROM bets b
        LEFT JOIN users u ON b.created_by = u.id
        WHERE b.short_id = $1 OR b.slug = $2`,
@@ -215,15 +294,25 @@ router.get('/slug/:slugWithId', optionalAuth, async (req, res, next) => {
       category: bet.category,
       status: bet.status,
       closeTime: bet.close_time,
-      totalPool: bet.total_pool,
-      participantCount: bet.participant_count,
+      totalPool: Math.max(
+        parseFloat(bet.total_pool) || 0,
+        parseFloat(bet.total_volume) || 0
+      ),
+      participantCount: parseInt(bet.total_participants) || bet.participant_count || 0,
       createdAt: bet.created_at,
+      // LMSR prediction market fields
+      liquidityB: bet.liquidity_b ? parseFloat(bet.liquidity_b) : null,
+      totalVolume: bet.total_volume ? parseFloat(bet.total_volume) : 0,
+      outcomeShares: bet.outcome_shares || [],
+      marketType: bet.market_type || 'PREDICTION',
       outcomes: outcomesResult.rows.map((o: any) => ({
         id: o.id,
         label: o.label,
         totalWagers: o.total_wagers,
         totalCoins: o.total_coins,
         sortOrder: o.sort_order,
+        currentPrice: o.current_price ? parseFloat(o.current_price) : null,
+        sharesQty: o.shares_qty ? parseFloat(o.shares_qty) : 0,
       })),
       createdBy: {
         displayName: bet.creator_name,
@@ -232,6 +321,7 @@ router.get('/slug/:slugWithId', optionalAuth, async (req, res, next) => {
       _count: {
         wagers: parseInt(bet.wager_count),
         comments: parseInt(bet.comment_count),
+        participants: parseInt(bet.total_participants) || bet.participant_count || 0,
       },
     };
 

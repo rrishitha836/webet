@@ -389,11 +389,18 @@ router.post('/ai-suggestions/:id/approve', authenticateAdmin, async (req, res, n
       );
       for (let i = 0; i < outcomes.length; i++) {
         await client.query(
-          `INSERT INTO outcomes (id, bet_id, label, sort_order)
-           VALUES ($1, $2, $3, $4)`,
-          [uuidv4(), betId, outcomes[i], i]
+          `INSERT INTO outcomes (id, bet_id, label, sort_order, current_price)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [uuidv4(), betId, outcomes[i], i, 1 / outcomes.length]
         );
       }
+
+      // Initialize LMSR outcome_shares (array of zeros = equal starting prices)
+      const initialShares = new Array(outcomes.length).fill(0);
+      await client.query(
+        `UPDATE bets SET outcome_shares = $1 WHERE id = $2`,
+        [JSON.stringify(initialShares), betId]
+      );
 
       // Update suggestion status
       await client.query(
@@ -538,13 +545,18 @@ router.post('/execute-agent', authenticateAdmin, async (req, res, next) => {
 // GET /api/admin/bets - List all bets (admin view)
 router.get('/bets', authenticateAdmin, async (req, res, next) => {
   try {
-    const { status, category, source, cursor, limit = '20' } = req.query;
+    const { status, category, source, search, cursor, limit = '20' } = req.query;
     const limitNum = parseInt(limit as string, 10);
 
     let whereClause = '1=1';
     const params: any[] = [];
     let paramIndex = 1;
 
+    if (search) {
+      whereClause += ` AND (b.title ILIKE $${paramIndex} OR b.description ILIKE $${paramIndex} OR b.short_id ILIKE $${paramIndex})`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
     if (status && status !== 'ALL') {
       whereClause += ` AND b.status = $${paramIndex}`;
       params.push(status);
@@ -634,6 +646,171 @@ router.get('/bets', authenticateAdmin, async (req, res, next) => {
         hasMore: bets.length === limitNum,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/admin/bets/:id - Get single bet detail (admin view)
+router.get('/bets/:id', authenticateAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const bet = await queryOne(
+      `SELECT 
+        b.*,
+        u.display_name as creator_name, u.email as creator_email,
+        (SELECT COUNT(*) FROM wagers WHERE bet_id = b.id) as wager_count,
+        (SELECT COUNT(*) FROM comments WHERE bet_id = b.id) as comment_count,
+        (SELECT COUNT(*) FROM reports WHERE bet_id = b.id) as report_count,
+        (SELECT COUNT(DISTINCT user_id) FROM user_shares WHERE bet_id = b.id AND shares > 0.000001) as trader_count
+       FROM bets b
+       LEFT JOIN users u ON b.created_by = u.id
+       WHERE b.id = $1`,
+      [id]
+    );
+
+    if (!bet) {
+      return res.status(404).json({
+        success: false,
+        error: { code: ERROR_CODES.NOT_FOUND, message: 'Bet not found' },
+      });
+    }
+
+    const outcomesResult = await query(
+      'SELECT * FROM outcomes WHERE bet_id = $1 ORDER BY sort_order',
+      [id]
+    );
+
+    // Get LMSR prices if outcome_shares exist
+    let lmsrPrices: number[] = [];
+    if (bet.outcome_shares) {
+      const shares = typeof bet.outcome_shares === 'string' ? JSON.parse(bet.outcome_shares) : bet.outcome_shares;
+      const b = parseFloat(bet.liquidity_param || '100');
+      const maxShare = Math.max(...shares.map(Number));
+      const expShares = shares.map((s: any) => Math.exp((Number(s) - maxShare) / b));
+      const sumExp = expShares.reduce((a: number, b: number) => a + b, 0);
+      lmsrPrices = expShares.map((e: number) => e / sumExp);
+    }
+
+    // Get recent trades
+    const tradesResult = await query(
+      `SELECT t.*, u.display_name as trader_name
+       FROM trades t
+       LEFT JOIN users u ON t.user_id = u.id
+       WHERE t.bet_id = $1
+       ORDER BY t.created_at DESC
+       LIMIT 20`,
+      [id]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        id: bet.id,
+        title: bet.title,
+        description: bet.description,
+        slug: bet.slug,
+        shortId: bet.short_id,
+        category: bet.category,
+        status: bet.status,
+        source: bet.source,
+        closeTime: bet.close_time,
+        totalPool: bet.total_pool,
+        totalVolume: bet.total_volume,
+        participantCount: bet.participant_count,
+        createdAt: bet.created_at,
+        updatedAt: bet.updated_at,
+        resolvedAt: bet.resolved_at,
+        winningOutcomeId: bet.winning_outcome_id,
+        resolutionCriteria: bet.resolution_criteria,
+        tags: bet.tags,
+        referenceLinks: bet.reference_links,
+        outcomeShares: bet.outcome_shares,
+        liquidityParam: bet.liquidity_param,
+        lmsrPrices,
+        outcomes: outcomesResult.rows.map((o: any) => ({
+          id: o.id,
+          label: o.label,
+          totalWagers: o.total_wagers,
+          totalCoins: o.total_coins,
+          sortOrder: o.sort_order,
+          currentPrice: o.current_price,
+        })),
+        createdBy: {
+          displayName: bet.creator_name,
+          email: bet.creator_email,
+        },
+        _count: {
+          wagers: parseInt(bet.wager_count),
+          comments: parseInt(bet.comment_count),
+          reports: parseInt(bet.report_count),
+          traders: parseInt(bet.trader_count),
+        },
+        recentTrades: tradesResult.rows.map((t: any) => ({
+          id: t.id,
+          side: t.side,
+          shares: parseFloat(t.shares),
+          cost: parseFloat(t.cost),
+          outcomeIndex: t.outcome_index,
+          priceAtTrade: parseFloat(t.price_at_trade),
+          createdAt: t.created_at,
+          traderName: t.trader_name,
+        })),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/admin/bets/:id - Update bet details
+router.put('/bets/:id', authenticateAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { title, description, category, resolutionCriteria, closeTime, tags, referenceLinks } = req.body;
+    const admin = req.user as any;
+
+    const existing = await queryOne('SELECT * FROM bets WHERE id = $1', [id]);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: { code: ERROR_CODES.NOT_FOUND, message: 'Bet not found' },
+      });
+    }
+
+    const updates: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (title !== undefined) { updates.push(`title = $${paramIndex}`); params.push(title); paramIndex++; }
+    if (description !== undefined) { updates.push(`description = $${paramIndex}`); params.push(description); paramIndex++; }
+    if (category !== undefined) { updates.push(`category = $${paramIndex}`); params.push(category); paramIndex++; }
+    if (resolutionCriteria !== undefined) { updates.push(`resolution_criteria = $${paramIndex}`); params.push(resolutionCriteria); paramIndex++; }
+    if (closeTime !== undefined) { updates.push(`close_time = $${paramIndex}`); params.push(new Date(closeTime)); paramIndex++; }
+    if (tags !== undefined) { updates.push(`tags = $${paramIndex}`); params.push(tags); paramIndex++; }
+    if (referenceLinks !== undefined) { updates.push(`reference_links = $${paramIndex}`); params.push(referenceLinks); paramIndex++; }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, error: { message: 'No fields to update' } });
+    }
+
+    updates.push('updated_at = NOW()');
+    params.push(id);
+
+    const updated = await queryOne(
+      `UPDATE bets SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+      params
+    );
+
+    // Log the action
+    await query(
+      `INSERT INTO audit_logs (id, action, entity_type, entity_id, admin_id, metadata)
+       VALUES ($1, 'BET_UPDATED', 'BET', $2, $3, $4)`,
+      [uuidv4(), id, admin.id, JSON.stringify({ fields: Object.keys(req.body) })]
+    );
+
+    res.json({ success: true, data: updated, message: 'Bet updated successfully' });
   } catch (error) {
     next(error);
   }
@@ -730,6 +907,9 @@ router.post('/bets/:id/resolve', authenticateAdmin, async (req, res, next) => {
     const totalPool = parseFloat(bet.total_pool);
     const winningPool = parseFloat(winningOutcome.total_coins);
 
+    // Find winning outcome's sort_order (index) for LMSR settlement
+    const winningOutcomeIndex = winningOutcome.sort_order;
+
     await transaction(async (client) => {
       // Update bet status
       await client.query(
@@ -737,10 +917,9 @@ router.post('/bets/:id/resolve', authenticateAdmin, async (req, res, next) => {
         [winningOutcomeId, id]
       );
 
-      // Process each wager
+      // --- LEGACY: Process wagers (fixed-pool system) ---
       for (const wager of wagersResult.rows) {
         if (wager.outcome_id === winningOutcomeId) {
-          // Winner
           const payout = winningPool > 0
             ? Math.floor((parseFloat(wager.amount) / winningPool) * totalPool)
             : parseFloat(wager.amount);
@@ -758,10 +937,9 @@ router.post('/bets/:id/resolve', authenticateAdmin, async (req, res, next) => {
           await client.query(
             `INSERT INTO notifications (id, user_id, type, title, message)
              VALUES ($1, $2, 'BET_RESOLVED', 'You won!', $3)`,
-            [uuidv4(), wager.user_id, `Your bet on "${bet.title}" won! You received ${payout} coins.`]
+            [uuidv4(), wager.user_id, `Your bet on "${ bet.title}" won! You received ${ payout} coins.`]
           );
         } else {
-          // Loser
           await client.query(
             `UPDATE wagers SET status = 'LOST', payout = 0 WHERE id = $1`,
             [wager.id]
@@ -770,9 +948,63 @@ router.post('/bets/:id/resolve', authenticateAdmin, async (req, res, next) => {
           await client.query(
             `INSERT INTO notifications (id, user_id, type, title, message)
              VALUES ($1, $2, 'BET_RESOLVED', 'Bet resolved', $3)`,
-            [uuidv4(), wager.user_id, `Your bet on "${bet.title}" did not win.`]
+            [uuidv4(), wager.user_id, `Your bet on "${ bet.title}" did not win.`]
           );
         }
+      }
+
+      // --- NEW: Process LMSR share positions ($1/share for winners, $0 for losers) ---
+      const allPositions = await client.query(
+        `SELECT us.*, u.balance FROM user_shares us JOIN users u ON us.user_id = u.id WHERE us.bet_id = $1 AND us.shares > 0.000001`,
+        [id]
+      );
+
+      for (const pos of allPositions.rows) {
+        const shares = parseFloat(pos.shares);
+        if (pos.outcome_index === winningOutcomeIndex) {
+          // Winner: each share pays 1 coin
+          const payout = shares;
+
+          await client.query(
+            `UPDATE users SET balance = balance + $1, total_wins = total_wins + 1 WHERE id = $2`,
+            [payout, pos.user_id]
+          );
+
+          await client.query(
+            `INSERT INTO trades (id, user_id, bet_id, outcome_index, side, shares, cost, price_at_trade, avg_price)
+             VALUES ($1, $2, $3, $4, 'SETTLE', $5, $6, 1.0, 1.0)`,
+            [uuidv4(), pos.user_id, id, pos.outcome_index, shares, payout]
+          );
+
+          await client.query(
+            `INSERT INTO notifications (id, user_id, type, title, message)
+             VALUES ($1, $2, 'BET_RESOLVED', 'Your shares won!', $3)`,
+            [uuidv4(), pos.user_id, `Your ${ shares.toFixed(1)} shares on "${ bet.title}" won! Payout: ${ payout.toFixed(2)} coins.`]
+          );
+
+          // Emit balance update
+          const updatedUser = await client.query('SELECT balance FROM users WHERE id = $1', [pos.user_id]);
+          SocketService.emitBalanceUpdate(pos.user_id, parseFloat(updatedUser.rows[0].balance));
+        } else {
+          // Loser: shares expire worthless
+          await client.query(
+            `INSERT INTO trades (id, user_id, bet_id, outcome_index, side, shares, cost, price_at_trade, avg_price)
+             VALUES ($1, $2, $3, $4, 'SETTLE', $5, 0, 0, 0)`,
+            [uuidv4(), pos.user_id, id, pos.outcome_index, shares]
+          );
+
+          await client.query(
+            `INSERT INTO notifications (id, user_id, type, title, message)
+             VALUES ($1, $2, 'BET_RESOLVED', 'Market resolved', $3)`,
+            [uuidv4(), pos.user_id, `Your ${ shares.toFixed(1)} shares on "${ bet.title}" expired worthless.`]
+          );
+        }
+
+        // Zero out the position
+        await client.query(
+          `UPDATE user_shares SET shares = 0, total_cost = 0, updated_at = NOW() WHERE id = $1`,
+          [pos.id]
+        );
       }
     });
 
@@ -997,11 +1229,18 @@ router.post('/bets', authenticateAdmin, async (req, res, next) => {
 
       for (let i = 0; i < outcomes.length; i++) {
         await client.query(
-          `INSERT INTO outcomes (id, bet_id, label, sort_order)
-           VALUES ($1, $2, $3, $4)`,
-          [uuidv4(), betId, outcomes[i].label, outcomes[i].sortOrder ?? i]
+          `INSERT INTO outcomes (id, bet_id, label, sort_order, current_price)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [uuidv4(), betId, outcomes[i].label, outcomes[i].sortOrder ?? i, 1 / outcomes.length]
         );
       }
+
+      // Initialize LMSR outcome_shares (array of zeros = equal starting prices)
+      const initialShares = new Array(outcomes.length).fill(0);
+      await client.query(
+        `UPDATE bets SET outcome_shares = $1 WHERE id = $2`,
+        [JSON.stringify(initialShares), betId]
+      );
 
       const betResult = await client.query('SELECT * FROM bets WHERE id = $1', [betId]);
       const outcomesResult = await client.query('SELECT * FROM outcomes WHERE bet_id = $1 ORDER BY sort_order', [betId]);
@@ -1051,6 +1290,7 @@ router.get('/categories/stats', authenticateAdmin, async (req, res, next) => {
         COUNT(*) FILTER (WHERE status = 'RESOLVED') as resolved_count
       FROM bets
       GROUP BY category
+      ORDER BY COUNT(*) DESC
     `, []);
 
     const totalsResult = await queryOne(`
@@ -1061,24 +1301,28 @@ router.get('/categories/stats', authenticateAdmin, async (req, res, next) => {
       FROM bets
     `, []);
 
-    const allCategories = ['SPORTS', 'POLITICS', 'ENTERTAINMENT', 'TECHNOLOGY', 'CULTURE', 'OTHER'];
-    
-    const categoryStatsMap = allCategories.map(category => {
-      const stat = statsResult.rows.find((s: any) => s.category === category);
-      return {
-        category,
-        count: parseInt(stat?.total_count || '0'),
-        activeCount: parseInt(stat?.active_count || '0'),
-        resolvedCount: parseInt(stat?.resolved_count || '0'),
-      };
-    });
+    // Build category stats dynamically from actual data
+    const categoryStats = statsResult.rows.map((stat: any) => ({
+      category: stat.category,
+      count: parseInt(stat.total_count || '0'),
+      activeCount: parseInt(stat.active_count || '0'),
+      resolvedCount: parseInt(stat.resolved_count || '0'),
+    }));
+
+    // Also include known categories that might have 0 bets
+    const knownCategories = ['SPORTS', 'POLITICS', 'ENTERTAINMENT', 'TECHNOLOGY', 'CULTURE', 'OTHER'];
+    for (const cat of knownCategories) {
+      if (!categoryStats.find((s: any) => s.category === cat)) {
+        categoryStats.push({ category: cat, count: 0, activeCount: 0, resolvedCount: 0 });
+      }
+    }
 
     res.json({
       success: true,
       totalBets: parseInt(totalsResult.total_bets),
       activeBets: parseInt(totalsResult.active_bets),
       resolvedBets: parseInt(totalsResult.resolved_bets),
-      categoryStats: categoryStatsMap,
+      categoryStats,
     });
   } catch (error) {
     next(error);

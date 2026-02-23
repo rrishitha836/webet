@@ -28,7 +28,15 @@ function generateShortId(): string {
 const authenticateAgent = (req: any, res: any, next: any) => {
 
   const apiKey = req.headers['x-api-key'];
-  const expectedKey ="AIzaSyDeaCjKkJ6vjQtmtXeKLFdiT1FMhlAKLYE";
+  const expectedKey = process.env.AGENT_API_KEY;
+
+  if (!expectedKey) {
+    console.error("❌ AGENT_API_KEY not set in environment variables");
+    return res.status(500).json({
+      success: false,
+      error: 'Server configuration error'
+    });
+  }
   console.log('🔑 Agent API key received:', apiKey);
   console.log('🔑 Expected API key:', expectedKey);
   
