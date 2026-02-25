@@ -23,8 +23,13 @@ export function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Don't show navbar on admin pages
+  // Don't show navbar on admin pages or user pages with sidebar layout
   if (pathname?.startsWith('/admin')) return null;
+  
+  // Hide navbar on pages that use UserLayout (sidebar navigation)
+  const userLayoutRoutes = ['/', '/dashboard', '/portfolio', '/leaderboard', '/propose', '/profile'];
+  const isUserLayoutPage = userLayoutRoutes.includes(pathname || '') || pathname?.startsWith('/bets/');
+  if (user && isUserLayoutPage) return null;
 
   return (
     <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 transition-colors duration-300">

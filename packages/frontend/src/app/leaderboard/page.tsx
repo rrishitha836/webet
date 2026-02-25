@@ -3,6 +3,7 @@
 import { useLeaderboard, type LeaderboardEntry } from '@/hooks/useApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import UserLayout from '@/components/layout/UserLayout';
 
 const MEDAL_COLORS = ['text-yellow-500', 'text-gray-400', 'text-amber-600'];
 
@@ -23,30 +24,19 @@ export default function LeaderboardPage() {
   const myRank = leaders?.find((l) => l.id === user?.id);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+    <UserLayout>
+      <div className="bg-gray-50 dark:bg-gray-900 min-h-full">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <button
-            onClick={() => router.push('/')}
-            className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-4 text-sm font-medium transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Home
-          </button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mb-6">
             <svg className="w-8 h-8 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
               <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
             </svg>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Leaderboard</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Leaderboard</h1>
               <p className="text-gray-500 dark:text-gray-400 mt-0.5">Top traders ranked by net worth</p>
             </div>
           </div>
         </div>
-      </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Your Rank Card */}
@@ -238,6 +228,7 @@ export default function LeaderboardPage() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </UserLayout>
   );
 }

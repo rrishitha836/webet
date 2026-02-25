@@ -1,21 +1,16 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
-import { useAllUserBets, useUserProfile, useActiveBets } from '@/hooks/useApi';
+import { useState, useMemo, useCallback, Suspense } from 'react';
+import { useAllUserBets, useUserProfile } from '@/hooks/useApi';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { Card } from '@/components/ui/Card';
-import { BetCard } from '@/components/bets/BetCard';
 import { BetDetailsModal } from '@/components/bets/BetDetailsModal';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import ViewToggle from '@/components/ui/ViewToggle';
-import TravelExploreIcon from '@mui/icons-material/TravelExplore';
-import AssessmentIcon from '@mui/icons-material/Assessment';
+import UserLayout from '@/components/layout/UserLayout';
 import BoltIcon from '@mui/icons-material/Bolt';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import HistoryIcon from '@mui/icons-material/History';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // ── Color helpers ──
 function getOutcomeColor(label: string): { bg: string; text: string; border: string; bar: string } {
@@ -23,7 +18,6 @@ function getOutcomeColor(label: string): { bg: string; text: string; border: str
   if (normalized === 'YES') return { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700', border: 'border-emerald-300', bar: 'bg-emerald-50 dark:bg-emerald-900/200' };
   if (normalized === 'NO') return { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700', border: 'border-red-300', bar: 'bg-red-50 dark:bg-red-900/200' };
   if (normalized === 'DRAW') return { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700', border: 'border-amber-300', bar: 'bg-amber-50 dark:bg-amber-900/200' };
-  // Pastel palette for custom outcomes
   const pastels = [
     { bg: 'bg-violet-50 dark:bg-violet-900/20', text: 'text-violet-700', border: 'border-violet-300', bar: 'bg-violet-50 dark:bg-violet-900/200' },
     { bg: 'bg-sky-50 dark:bg-sky-900/20', text: 'text-sky-700', border: 'border-sky-300', bar: 'bg-sky-50 dark:bg-sky-900/200' },
@@ -32,7 +26,6 @@ function getOutcomeColor(label: string): { bg: string; text: string; border: str
     { bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700', border: 'border-orange-300', bar: 'bg-orange-50 dark:bg-orange-900/200' },
     { bg: 'bg-indigo-50 dark:bg-indigo-900/20', text: 'text-indigo-700', border: 'border-indigo-300', bar: 'bg-indigo-50 dark:bg-indigo-900/200' },
   ];
-  // Hash to pick a consistent color
   const hash = label?.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) || 0;
   return pastels[hash % pastels.length];
 }
@@ -62,40 +55,21 @@ function getBetStatusBadge(status: string) {
 type MyBetsFilter = 'ACTIVE' | 'PENDING' | 'COMPLETED' | 'HISTORY';
 
 function DashboardContent() {
-  const searchParams = useSearchParams();
-  const tabFromUrl = searchParams.get('tab');
-  const initialTab = tabFromUrl === 'my-bets' ? 'MY_BETS' : 'ACTIVE_BETS';
-
-  const [activeTab, setActiveTabState] = useState<'MY_BETS' | 'ACTIVE_BETS'>(initialTab);
   const [myBetsFilter, setMyBetsFilter] = useState<MyBetsFilter>('ACTIVE');
-  const [activeBetsCategory, setActiveBetsCategory] = useState<string>('');
   const [selectedBetId, setSelectedBetId] = useState<string | null>(null);
   const [selectedUserWager, setSelectedUserWager] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [myBetsViewMode, setMyBetsViewMode] = useState<'grid' | 'list'>('grid');
-  const [browseBetsViewMode, setBrowseBetsViewMode] = useState<'grid' | 'list'>('grid');
 
   // ── Fetch ALL user bets once ──
-  const { data: allBets, isLoading: betsLoading, refetch: refetchBets } = useAllUserBets();
-  const { data: activeBets, isLoading: activeBetsLoading } = useActiveBets({ 
-    category: activeBetsCategory || undefined 
-  });
+  const { data: allBets, isLoading: betsLoading } = useAllUserBets();
   const { data: profile } = useUserProfile();
   const router = useRouter();
 
-  // Sync tab to URL
-  const setActiveTab = useCallback((tab: 'MY_BETS' | 'ACTIVE_BETS') => {
-    setActiveTabState(tab);
-    const url = tab === 'MY_BETS' ? '/dashboard?tab=my-bets' : '/dashboard';
-    router.replace(url, { scroll: false });
-  }, [router]);
-
-  // Refetch when switching to My Bets
-  useEffect(() => {
-    if (activeTab === 'MY_BETS') {
-      refetchBets();
-    }
-  }, [activeTab, refetchBets]);
+  // Derived dashboard stats with fallbacks in case `profile.stats` is not yet populated
+  const totalBetsCount = profile?.stats?.totalBets ?? profile?.totalBets ?? (allBets?.length || 0);
+  const totalWinningsAmount = profile?.stats?.totalWinnings ?? profile?.totalWinnings ?? 0;
+  const winRatePct = profile?.stats?.winRate != null ? profile.stats.winRate : (totalBetsCount > 0 ? 0 : 0);
 
   // ── Client-side filtering via useMemo ──
   const activeBetsList = useMemo(() => {
@@ -110,9 +84,23 @@ function DashboardContent() {
 
   const completedBetsList = useMemo(() => {
     if (!allBets) return [];
-    return allBets.filter((b: any) => 
-      b.status === 'RESOLVED' && ['WON', 'LOST', 'REFUNDED'].includes(b.wager?.status)
-    );
+    const now = Date.now();
+    return allBets.filter((b: any) => {
+      const ws = b.wager?.status;
+      // Primary: user wager indicates final outcome
+      if (['WON', 'LOST', 'REFUNDED', 'COMPLETED'].includes(ws)) return true;
+      // If bet is explicitly resolved include it (user participated previously)
+      // Show RESOLVED bets in Completed even if wager/shares fields are empty
+      if (b.status === 'RESOLVED') return true;
+      // Treat CLOSED bets whose closeTime has passed and where the user had a stake as completed
+      try {
+        const closeTs = b.closeTime ? new Date(b.closeTime).getTime() : 0;
+        if (b.status === 'CLOSED' && closeTs > 0 && closeTs < now && (b.wager?.shares || b.wager?.amount)) return true;
+      } catch (e) {
+        // ignore parse errors
+      }
+      return false;
+    });
   }, [allBets]);
 
   const historyBetsList = useMemo(() => {
@@ -124,7 +112,6 @@ function DashboardContent() {
     );
   }, [allBets, searchQuery]);
 
-  // Map filter to the list
   const currentBetsList = useMemo(() => {
     switch (myBetsFilter) {
       case 'ACTIVE': return activeBetsList;
@@ -143,20 +130,12 @@ function DashboardContent() {
     HISTORY: allBets?.length || 0,
   }), [activeBetsList, pendingBetsList, completedBetsList, allBets]);
 
-  // ── Tab config ──
-  const mainTabs: { key: 'ACTIVE_BETS' | 'MY_BETS'; label: string; icon: React.ReactNode }[] = [
-    { key: 'ACTIVE_BETS' as const, label: 'Browse Bets', icon: <TravelExploreIcon fontSize="small" /> },
-    { key: 'MY_BETS' as const, label: 'My Bets Dashboard', icon: <AssessmentIcon fontSize="small" /> },
-  ];
-
   const myBetsTabs: { key: MyBetsFilter; label: string; description: string; icon: React.ReactNode }[] = [
     { key: 'ACTIVE', label: 'Active', description: 'Open bets you\'ve joined', icon: <BoltIcon fontSize="small" /> },
     { key: 'PENDING', label: 'Pending Results', description: 'Closed bets awaiting resolution', icon: <HourglassTopIcon fontSize="small" /> },
     { key: 'COMPLETED', label: 'Completed', description: 'Resolved bets with outcomes', icon: <TaskAltIcon fontSize="small" /> },
     { key: 'HISTORY', label: 'History', description: 'Full chronological log', icon: <HistoryIcon fontSize="small" /> },
   ];
-
-  const categories = ['ALL', 'SPORTS', 'POLITICS', 'ENTERTAINMENT', 'TECHNOLOGY', 'CULTURE', 'OTHER'];
 
   const handleOpenBetDetails = useCallback((bet: any) => {
     setSelectedBetId(bet.id);
@@ -181,35 +160,9 @@ function DashboardContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-          <div className="flex items-center justify-between py-1">
-            <div className="flex items-center gap-4">
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-100 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <title>Trending up</title>
-                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                  <polyline points="17 6 23 6 23 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                </svg>
-              </div>
-              <div className="flex flex-col justify-center h-8 md:h-10">
-                <h1 className="text-xl md:text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">WeBet</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1.5">Track your bets and performance</p>
-              </div>
-            </div>
-            <button
-              onClick={() => router.push('/profile')}
-              className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-xs sm:text-sm"
-            >
-              Edit Profile
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <UserLayout>
+      <div className="bg-gray-50 dark:bg-gray-900 min-h-full">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* ── Stats Overview ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-3 sm:p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
@@ -224,7 +177,6 @@ function DashboardContent() {
             </div>
             <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-0.5">${profile?.balance?.toLocaleString() || '0'}</p>
             <p className="text-[10px] sm:text-xs text-gray-400 font-medium">Current Balance</p>
-
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-3 sm:p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
@@ -238,7 +190,7 @@ function DashboardContent() {
                 </span>
               )}
             </div>
-            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{profile?.stats?.totalBets ?? profile?.totalBets ?? 0}</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{totalBetsCount}</p>
             <p className="text-[10px] sm:text-xs text-gray-400 font-medium">Total Bets Placed</p>
           </div>
 
@@ -254,7 +206,7 @@ function DashboardContent() {
               )}
             </div>
             <p className="text-xl sm:text-2xl font-bold text-emerald-600 mb-0.5">
-              {profile?.stats?.winRate != null ? `${profile.stats.winRate}%` : '0%'}
+              {winRatePct != null ? `${winRatePct}%` : '0%'}
             </p>
             <p className="text-[10px] sm:text-xs text-gray-400 font-medium">Win Rate</p>
           </div>
@@ -272,395 +224,319 @@ function DashboardContent() {
               )}
             </div>
             <p className="text-xl sm:text-2xl font-bold text-amber-600 mb-0.5">
-              ${profile?.stats?.totalWinnings?.toLocaleString() ?? '0'}
+              ${totalWinningsAmount?.toLocaleString ? totalWinningsAmount.toLocaleString() : totalWinningsAmount}
             </p>
             <p className="text-[10px] sm:text-xs text-gray-400 font-medium">Total Winnings</p>
           </div>
         </div>
 
-        {/* ── Main Navigation Tabs ── */}
+        {/* ── My Bets Section ── */}
         <div className="mb-6">
-          <div className="border-b border-gray-200 dark:border-gray-700">
-            <nav className="-mb-px flex space-x-4 sm:space-x-8">
-              {mainTabs.map((tab) => (
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">My Bets</h2>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex overflow-x-auto scrollbar-hide gap-2 sm:gap-2.5 pb-1">
+              {myBetsTabs.map((tab) => (
                 <button
                   key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
-                    activeTab === tab.key
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                  onClick={() => {
+                    setMyBetsFilter(tab.key);
+                    if (tab.key !== 'HISTORY') setSearchQuery('');
+                  }}
+                  className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-medium text-xs sm:text-sm transition-all duration-200 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
+                    myBetsFilter === tab.key
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-800 dark:hover:text-gray-200'
                   }`}
                 >
-                  <span>{tab.icon}</span>
-                  {tab.label}
+                  <span className="text-sm">{tab.icon}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.key === 'PENDING' ? 'Pending' : tab.key === 'COMPLETED' ? 'Done' : tab.label}</span>
+                  <span className={`px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-bold rounded-full transition-colors ${
+                    myBetsFilter === tab.key
+                      ? 'bg-white/25 text-white'
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                  }`}>
+                    {tabCounts[tab.key]}
+                  </span>
                 </button>
               ))}
-            </nav>
+            </div>
+            <ViewToggle view={myBetsViewMode} onChange={setMyBetsViewMode} />
           </div>
         </div>
 
-        {/* ════════════════ MY BETS TAB ════════════════ */}
-        {activeTab === 'MY_BETS' && (
-          <>
-            {/* Sub-tabs – pill style */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex overflow-x-auto scrollbar-hide gap-2 sm:gap-2.5 pb-1">
-                {myBetsTabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => {
-                      setMyBetsFilter(tab.key);
-                      if (tab.key !== 'HISTORY') setSearchQuery('');
-                    }}
-                    className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-medium text-xs sm:text-sm transition-all duration-200 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
-                      myBetsFilter === tab.key
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-800 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    <span className="text-sm">{tab.icon}</span>
-                    <span className="hidden sm:inline">{tab.label}</span>
-                    <span className="sm:hidden">{tab.key === 'PENDING' ? 'Pending' : tab.key === 'COMPLETED' ? 'Done' : tab.label}</span>
-                    <span className={`px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-bold rounded-full transition-colors ${
-                      myBetsFilter === tab.key
-                        ? 'bg-white/25 text-white'
-                        : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                    }`}>
-                      {tabCounts[tab.key]}
-                    </span>
-                  </button>
-                ))}
-                </div>
-                <ViewToggle view={myBetsViewMode} onChange={setMyBetsViewMode} />
-              </div>
+        {/* Search (History tab only) */}
+        {myBetsFilter === 'HISTORY' && (
+          <div className="mb-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-xl">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search by bet title or description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+              />
+              <svg className="absolute left-3 top-3 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
             </div>
-
-            {/* Search (History tab only) */}
-            {myBetsFilter === 'HISTORY' && (
-              <div className="mb-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-xl">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search by bet title or description..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
-                  />
-                  <svg className="absolute left-3 top-3 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-              </div>
-            )}
-
-            {/* ── Bet Cards ── */}
-            {betsLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-              </div>
-            ) : currentBetsList.length > 0 ? (
-              <div className={myBetsViewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5' : 'space-y-3'}>
-                {currentBetsList.map((bet: any) => {
-                  const outcomeColor = getOutcomeColor(bet.wager?.outcome?.label || '');
-                  const isWon = bet.wager?.status === 'WON';
-                  const isLost = bet.wager?.status === 'LOST';
-                  const isRefunded = bet.wager?.status === 'REFUNDED';
-
-                  return myBetsViewMode === 'list' ? (
-                    <div
-                      key={bet.wager?.id || bet.id}
-                      onClick={() => handleOpenBetDetails(bet)}
-                      className={`group bg-white dark:bg-gray-800 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer p-4 flex items-center gap-4 ${
-                        isWon ? 'border-emerald-200 ring-1 ring-emerald-100' :
-                        isLost ? 'border-red-200 ring-1 ring-red-100' :
-                        'border-gray-200 dark:border-gray-700 hover:border-blue-200'
-                      }`}
-                    >
-                      {myBetsFilter === 'COMPLETED' && (
-                        <div className={`w-1 h-10 rounded-full shrink-0 ${isWon ? 'bg-emerald-50 dark:bg-emerald-900/200' : isLost ? 'bg-red-50 dark:bg-red-900/200' : 'bg-amber-50 dark:bg-amber-900/200'}`} />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">{bet.title}</h3>
-                          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${getWagerStatusBadge(bet.wager?.status)}`}>{bet.wager?.status}</span>
-                          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${getBetStatusBadge(bet.status)}`}>{bet.status}</span>
-                        </div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
-                          <span className={`inline-flex items-center gap-1 ${outcomeColor.text}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${outcomeColor.bar}`} />
-                            {bet.wager?.outcome?.label || 'N/A'}
-                          </span>
-                          <span>Staked ${bet.wager?.amount?.toLocaleString() || 0}</span>
-                          {bet.wager?.shares != null && bet.wager.shares > 0 && (
-                            <span className="inline-flex items-center gap-1 text-indigo-600 font-medium">
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" /></svg>
-                              {bet.wager.shares.toFixed(1)} shares
-                            </span>
-                          )}
-                          <span>{bet.category}</span>
-                        </div>
-                      </div>
-                      <div className="hidden sm:flex items-center gap-4 shrink-0 text-sm">
-                        {myBetsFilter === 'ACTIVE' && bet.status === 'OPEN' && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); router.push(`/bets/${bet.id}`); }}
-                            className="px-3 py-1 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-800 border border-blue-200 dark:border-blue-700 transition-colors"
-                          >
-                            Trade
-                          </button>
-                        )}
-                        {myBetsFilter === 'ACTIVE' && (
-                          <span className="font-semibold text-orange-600 text-xs">{bet.closeTime ? formatTimeLeft(bet.closeTime) : '—'}</span>
-                        )}
-                        {myBetsFilter === 'COMPLETED' && (
-                          <span className={`font-semibold text-xs ${isWon ? 'text-emerald-600' : isLost ? 'text-red-600' : 'text-amber-600'}`}>
-                            {isWon ? '+' : isLost ? '-' : ''}${bet.wager?.amount?.toLocaleString() || 0}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      key={bet.wager?.id || bet.id}
-                      onClick={() => handleOpenBetDetails(bet)}
-                      className={`group bg-white dark:bg-gray-800 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden ${
-                        isWon ? 'border-emerald-200 ring-1 ring-emerald-100' :
-                        isLost ? 'border-red-200 ring-1 ring-red-100' :
-                        'border-gray-200 dark:border-gray-700 hover:border-blue-200'
-                      }`}
-                    >
-                      {/* Win/Loss accent bar */}
-                      {myBetsFilter === 'COMPLETED' && (
-                        <div className={`h-1 ${isWon ? 'bg-emerald-50 dark:bg-emerald-900/200' : isLost ? 'bg-red-50 dark:bg-red-900/200' : 'bg-amber-50 dark:bg-amber-900/200'}`} />
-                      )}
-
-                      <div className="p-4 sm:p-5">
-                        {/* Title + Badges */}
-                        <div className="flex items-start justify-between gap-2 sm:gap-3 mb-2.5 sm:mb-3">
-                          <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
-                            {bet.title}
-                          </h3>
-                          <div className="flex-shrink-0 flex items-center gap-1">
-                            <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold ${getWagerStatusBadge(bet.wager?.status)}`}>
-                              {bet.wager?.status}
-                            </span>
-                            <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium ${getBetStatusBadge(bet.status)}`}>
-                              {bet.status}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Selected Outcome Chip */}
-                        <div className={`inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:py-1.5 rounded-lg border ${outcomeColor.bg} ${outcomeColor.border} mb-3 sm:mb-4`}>
-                          <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${outcomeColor.bar}`} />
-                          <span className={`text-xs sm:text-sm font-medium ${outcomeColor.text}`}>
-                            {bet.wager?.outcome?.label || 'N/A'}
-                          </span>
-                          {isWon && (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </div>
-
-                        {/* Info Grid */}
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <p className="text-gray-400 text-xs mb-0.5">Staked</p>
-                            <p className="font-semibold text-gray-900 dark:text-white">${bet.wager?.amount?.toLocaleString() || 0}</p>
-                          </div>
-
-                          {/* Your Shares */}
-                          {bet.wager?.shares != null && bet.wager.shares > 0 && (
-                            <div>
-                              <p className="text-gray-400 text-xs mb-0.5">Your Shares</p>
-                              <p className="font-semibold text-indigo-600">{bet.wager.shares.toFixed(1)}</p>
-                              {bet.wager.sharesDetail && bet.wager.sharesDetail.length > 1 && (
-                                <div className="mt-1 space-y-0.5">
-                                  {bet.wager.sharesDetail.map((sd: any, i: number) => (
-                                    <p key={i} className="text-[10px] text-gray-500 dark:text-gray-400">
-                                      {sd.label}: {parseFloat(sd.shares).toFixed(1)}
-                                    </p>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {myBetsFilter === 'ACTIVE' && (
-                            <div>
-                              <p className="text-gray-400 text-xs mb-0.5">Closes In</p>
-                              <p className="font-semibold text-orange-600">
-                                {bet.closeTime ? formatTimeLeft(bet.closeTime) : '—'}
-                              </p>
-                            </div>
-                          )}
-
-                          {myBetsFilter === 'PENDING' && (
-                            <div>
-                              <p className="text-gray-400 text-xs mb-0.5">Closed</p>
-                              <p className="font-semibold text-yellow-600">
-                                {bet.closeTime ? new Date(bet.closeTime).toLocaleDateString() : '—'}
-                              </p>
-                            </div>
-                          )}
-
-                          {myBetsFilter === 'COMPLETED' && (
-                            <div>
-                              <p className="text-gray-400 text-xs mb-0.5">
-                                {isWon ? 'Won' : isLost ? 'Lost' : 'Refunded'}
-                              </p>
-                              <p className={`font-semibold ${isWon ? 'text-emerald-600' : isLost ? 'text-red-600' : 'text-amber-600'}`}>
-                                {isWon ? '+' : isLost ? '-' : ''}${bet.wager?.amount?.toLocaleString() || 0}
-                              </p>
-                            </div>
-                          )}
-
-                          {myBetsFilter === 'HISTORY' && (
-                            <div>
-                              <p className="text-gray-400 text-xs mb-0.5">Result</p>
-                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getWagerStatusBadge(bet.wager?.status)}`}>
-                                {bet.wager?.status}
-                              </span>
-                            </div>
-                          )}
-
-                          <div>
-                            <p className="text-gray-400 text-xs mb-0.5">Category</p>
-                            <p className="font-medium text-blue-600 text-xs">{bet.category}</p>
-                          </div>
-
-                          <div>
-                            <p className="text-gray-400 text-xs mb-0.5">
-                              {myBetsFilter === 'COMPLETED' ? 'Resolved' : 'Placed'}
-                            </p>
-                            <p className="font-medium text-gray-700 dark:text-gray-300 text-xs">
-                              {bet.wager?.createdAt ? new Date(bet.wager.createdAt).toLocaleDateString() : '—'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Trade button for open markets */}
-                        {bet.status === 'OPEN' && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); router.push(`/bets/${bet.id}`); }}
-                            className="mt-3 w-full px-3 py-2 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-800 border border-blue-200 dark:border-blue-700 transition-colors flex items-center justify-center gap-1.5"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                            Trade / Sell Shares
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              /* Empty state */
-              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 sm:p-12 text-center">
-                <span className="w-12 h-12 flex items-center justify-center mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-xl text-gray-400">
-                  {myBetsTabs.find(t => t.key === myBetsFilter)?.icon}
-                </span>
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  {myBetsFilter === 'ACTIVE' && 'No active bets'}
-                  {myBetsFilter === 'PENDING' && 'No bets pending results'}
-                  {myBetsFilter === 'COMPLETED' && 'No completed bets'}
-                  {myBetsFilter === 'HISTORY' && (searchQuery ? 'No bets found' : 'No betting history')}
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
-                  {myBetsFilter === 'ACTIVE' && 'Browse available bets to get started!'}
-                  {myBetsFilter === 'PENDING' && 'No bets are waiting for resolution.'}
-                  {myBetsFilter === 'COMPLETED' && 'No bets have been resolved yet.'}
-                  {myBetsFilter === 'HISTORY' && (
-                    searchQuery ? `No bets match "${searchQuery}".` : 'Place bets to see history here.'
-                  )}
-                </p>
-                {(myBetsFilter === 'ACTIVE' || (myBetsFilter === 'HISTORY' && !searchQuery)) && (
-                  <button
-                    onClick={() => setActiveTab('ACTIVE_BETS')}
-                    className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-                  >
-                    Browse Available Bets
-                  </button>
-                )}
-                {myBetsFilter === 'HISTORY' && searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="px-6 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium text-sm"
-                  >
-                    Clear Search
-                  </button>
-                )}
-              </div>
-            )}
-          </>
+          </div>
         )}
 
-        {/* ════════════════ BROWSE BETS TAB ════════════════ */}
-        {activeTab === 'ACTIVE_BETS' && (
-          <>
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Filter by Category</h3>
-                <ViewToggle view={browseBetsViewMode} onChange={setBrowseBetsViewMode} />
-              </div>
-              <div className="flex overflow-x-auto scrollbar-hide gap-2 pb-1">
-                {categories.map((category) => (
-                  <button
-                    key={category}
-                    onClick={() => setActiveBetsCategory(category === 'ALL' ? '' : category)}
-                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${
-                      (category === 'ALL' && !activeBetsCategory) || activeBetsCategory === category
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* ── Bet Cards ── */}
+        {betsLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        ) : currentBetsList.length > 0 ? (
+          <div className={myBetsViewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5' : 'space-y-3'}>
+            {currentBetsList.map((bet: any) => {
+              const outcomeColor = getOutcomeColor(bet.wager?.outcome?.label || '');
+              const isWon = bet.wager?.status === 'WON';
+              const isLost = bet.wager?.status === 'LOST';
+              const isRefunded = bet.wager?.status === 'REFUNDED';
 
-            {activeBetsLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-              </div>
-            ) : activeBets && activeBets.length > 0 ? (
-              <div className={browseBetsViewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6' : 'space-y-3'}>
-                {activeBets.map((bet: any) => (
-                  <BetCard key={bet.id} bet={bet} />
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 sm:p-12 text-center">
-                <svg className="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                </svg>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No active bets</h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-4">
-                  {activeBetsCategory 
-                    ? `No bets in ${activeBetsCategory} category right now.`
-                    : 'No bets available right now. Check back later!'
-                  }
-                </p>
-              </div>
+              return myBetsViewMode === 'list' ? (
+                <div
+                  key={bet.wager?.id || bet.id}
+                  onClick={() => handleOpenBetDetails(bet)}
+                  className={`group bg-white dark:bg-gray-800 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer p-4 flex items-center gap-4 ${
+                    isWon ? 'border-emerald-200 ring-1 ring-emerald-100' :
+                    isLost ? 'border-red-200 ring-1 ring-red-100' :
+                    'border-gray-200 dark:border-gray-700 hover:border-blue-200'
+                  }`}
+                >
+                  {myBetsFilter === 'COMPLETED' && (
+                    <div className={`w-1 h-10 rounded-full shrink-0 ${isWon ? 'bg-emerald-50 dark:bg-emerald-900/200' : isLost ? 'bg-red-50 dark:bg-red-900/200' : 'bg-amber-50 dark:bg-amber-900/200'}`} />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">{bet.title}</h3>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${getWagerStatusBadge(bet.wager?.status)}`}>{bet.wager?.status}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${getBetStatusBadge(bet.status)}`}>{bet.status}</span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      <span className={`inline-flex items-center gap-1 ${outcomeColor.text}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${outcomeColor.bar}`} />
+                        {bet.wager?.outcome?.label || 'N/A'}
+                      </span>
+                      <span>Staked ${bet.wager?.amount?.toLocaleString() || 0}</span>
+                      {bet.wager?.shares != null && bet.wager.shares > 0 && (
+                        <span className="inline-flex items-center gap-1 text-indigo-600 font-medium">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" /></svg>
+                          {bet.wager.shares.toFixed(1)} shares
+                        </span>
+                      )}
+                      <span>{bet.category}</span>
+                    </div>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-4 shrink-0 text-sm">
+                    {myBetsFilter === 'ACTIVE' && bet.status === 'OPEN' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); router.push(`/bets/${bet.id}`); }}
+                        className="px-3 py-1 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-800 border border-blue-200 dark:border-blue-700 transition-colors"
+                      >
+                        Trade
+                      </button>
+                    )}
+                    {myBetsFilter === 'ACTIVE' && (
+                      <span className="font-semibold text-orange-600 text-xs">{bet.closeTime ? formatTimeLeft(bet.closeTime) : '\u2014'}</span>
+                    )}
+                    {myBetsFilter === 'COMPLETED' && (
+                      <span className={`font-semibold text-xs ${isWon ? 'text-emerald-600' : isLost ? 'text-red-600' : 'text-amber-600'}`}>
+                        {isWon ? '+' : isLost ? '-' : ''}${bet.wager?.amount?.toLocaleString() || 0}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div
+                  key={bet.wager?.id || bet.id}
+                  onClick={() => handleOpenBetDetails(bet)}
+                  className={`group bg-white dark:bg-gray-800 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden ${
+                    isWon ? 'border-emerald-200 ring-1 ring-emerald-100' :
+                    isLost ? 'border-red-200 ring-1 ring-red-100' :
+                    'border-gray-200 dark:border-gray-700 hover:border-blue-200'
+                  }`}
+                >
+                  {/* Win/Loss accent bar */}
+                  {myBetsFilter === 'COMPLETED' && (
+                    <div className={`h-1 ${isWon ? 'bg-emerald-50 dark:bg-emerald-900/200' : isLost ? 'bg-red-50 dark:bg-red-900/200' : 'bg-amber-50 dark:bg-amber-900/200'}`} />
+                  )}
+
+                  <div className="p-4 sm:p-5">
+                    {/* Title + Badges */}
+                    <div className="flex items-start justify-between gap-2 sm:gap-3 mb-2.5 sm:mb-3">
+                      <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+                        {bet.title}
+                      </h3>
+                      <div className="flex-shrink-0 flex items-center gap-1">
+                        <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold ${getWagerStatusBadge(bet.wager?.status)}`}>
+                          {bet.wager?.status}
+                        </span>
+                        <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium ${getBetStatusBadge(bet.status)}`}>
+                          {bet.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Selected Outcome Chip */}
+                    <div className={`inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:py-1.5 rounded-lg border ${outcomeColor.bg} ${outcomeColor.border} mb-3 sm:mb-4`}>
+                      <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${outcomeColor.bar}`} />
+                      <span className={`text-xs sm:text-sm font-medium ${outcomeColor.text}`}>
+                        {bet.wager?.outcome?.label || 'N/A'}
+                      </span>
+                      {isWon && (
+                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-gray-400 text-xs mb-0.5">Staked</p>
+                        <p className="font-semibold text-gray-900 dark:text-white">${bet.wager?.amount?.toLocaleString() || 0}</p>
+                      </div>
+
+                      {/* Your Shares */}
+                      {bet.wager?.shares != null && bet.wager.shares > 0 && (
+                        <div>
+                          <p className="text-gray-400 text-xs mb-0.5">Your Shares</p>
+                          <p className="font-semibold text-indigo-600">{bet.wager.shares.toFixed(1)}</p>
+                          {bet.wager.sharesDetail && bet.wager.sharesDetail.length > 1 && (
+                            <div className="mt-1 space-y-0.5">
+                              {bet.wager.sharesDetail.map((sd: any, i: number) => (
+                                <p key={i} className="text-[10px] text-gray-500 dark:text-gray-400">
+                                  {sd.label}: {parseFloat(sd.shares).toFixed(1)}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {myBetsFilter === 'ACTIVE' && (
+                        <div>
+                          <p className="text-gray-400 text-xs mb-0.5">Closes In</p>
+                          <p className="font-semibold text-orange-600">
+                            {bet.closeTime ? formatTimeLeft(bet.closeTime) : '\u2014'}
+                          </p>
+                        </div>
+                      )}
+
+                      {myBetsFilter === 'PENDING' && (
+                        <div>
+                          <p className="text-gray-400 text-xs mb-0.5">Closed</p>
+                          <p className="font-semibold text-yellow-600">
+                            {bet.closeTime ? new Date(bet.closeTime).toLocaleDateString() : '\u2014'}
+                          </p>
+                        </div>
+                      )}
+
+                      {myBetsFilter === 'COMPLETED' && (
+                        <div>
+                          <p className="text-gray-400 text-xs mb-0.5">
+                            {isWon ? 'Won' : isLost ? 'Lost' : 'Refunded'}
+                          </p>
+                          <p className={`font-semibold ${isWon ? 'text-emerald-600' : isLost ? 'text-red-600' : 'text-amber-600'}`}>
+                            {isWon ? '+' : isLost ? '-' : ''}${bet.wager?.amount?.toLocaleString() || 0}
+                          </p>
+                        </div>
+                      )}
+
+                      {myBetsFilter === 'HISTORY' && (
+                        <div>
+                          <p className="text-gray-400 text-xs mb-0.5">Result</p>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getWagerStatusBadge(bet.wager?.status)}`}>
+                            {bet.wager?.status}
+                          </span>
+                        </div>
+                      )}
+
+                      <div>
+                        <p className="text-gray-400 text-xs mb-0.5">Category</p>
+                        <p className="font-medium text-blue-600 text-xs">{bet.category}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-gray-400 text-xs mb-0.5">
+                          {myBetsFilter === 'COMPLETED' ? 'Resolved' : 'Placed'}
+                        </p>
+                        <p className="font-medium text-gray-700 dark:text-gray-300 text-xs">
+                          {bet.wager?.createdAt ? new Date(bet.wager.createdAt).toLocaleDateString() : '\u2014'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Trade button for open markets */}
+                    {bet.status === 'OPEN' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); router.push(`/bets/${bet.id}`); }}
+                        className="mt-3 w-full px-3 py-2 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-800 border border-blue-200 dark:border-blue-700 transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                        Trade / Sell Shares
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* Empty state */
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 sm:p-12 text-center">
+            <span className="w-12 h-12 flex items-center justify-center mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-xl text-gray-400">
+              {myBetsTabs.find(t => t.key === myBetsFilter)?.icon}
+            </span>
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              {myBetsFilter === 'ACTIVE' && 'No active bets'}
+              {myBetsFilter === 'PENDING' && 'No bets pending results'}
+              {myBetsFilter === 'COMPLETED' && 'No completed bets'}
+              {myBetsFilter === 'HISTORY' && (searchQuery ? 'No bets found' : 'No betting history')}
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+              {myBetsFilter === 'ACTIVE' && 'Browse available markets to get started!'}
+              {myBetsFilter === 'PENDING' && 'No bets are waiting for resolution.'}
+              {myBetsFilter === 'COMPLETED' && 'No bets have been resolved yet.'}
+              {myBetsFilter === 'HISTORY' && (
+                searchQuery ? `No bets match "${searchQuery}".` : 'Place bets to see history here.'
+              )}
+            </p>
+            {(myBetsFilter === 'ACTIVE' || (myBetsFilter === 'HISTORY' && !searchQuery)) && (
+              <button
+                onClick={() => router.push('/markets')}
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+              >
+                Browse Markets
+              </button>
             )}
-          </>
+            {myBetsFilter === 'HISTORY' && searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="px-6 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium text-sm"
+              >
+                Clear Search
+              </button>
+            )}
+          </div>
         )}
       </div>
 
-      {/* ── Bet Details Modal ── */}
-      {selectedBetId && (
-        <BetDetailsModal
-          isOpen={!!selectedBetId}
-          onClose={handleCloseBetDetails}
-          betId={selectedBetId}
-          userWager={selectedUserWager}
-        />
-      )}
-    </div>
+      
+        {/* ── Bet Details Modal ── */}
+        {selectedBetId && (
+          <BetDetailsModal
+            isOpen={!!selectedBetId}
+            onClose={handleCloseBetDetails}
+            betId={selectedBetId}
+            userWager={selectedUserWager}
+          />
+        )}
+      </div>
+    </UserLayout>
   );
 }
 

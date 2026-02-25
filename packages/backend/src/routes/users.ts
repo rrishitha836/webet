@@ -157,15 +157,26 @@ router.get('/profile', authenticateUser, async (req, res, next) => {
       });
     }
 
-    // Compute stats from wagers table
+    // Compute stats across wagers, trades and LMSR user_shares so totals reflect all participation
     const wagerStats = await queryOne(
-      `SELECT 
-        COUNT(*)::int as total_bets,
-        COUNT(CASE WHEN w.status = 'WON' THEN 1 END)::int as wins,
-        COUNT(CASE WHEN w.status = 'LOST' THEN 1 END)::int as losses,
-        COALESCE(SUM(CASE WHEN w.status = 'WON' THEN w.payout ELSE 0 END), 0)::numeric as total_winnings,
-        COALESCE(SUM(w.amount), 0)::numeric as total_staked
-       FROM wagers w WHERE w.user_id = $1`,
+      `WITH participation AS (
+         SELECT bet_id FROM wagers WHERE user_id = $1
+         UNION
+         SELECT bet_id FROM trades WHERE user_id = $1
+         UNION
+         SELECT bet_id FROM user_shares WHERE user_id = $1 AND shares > 0.001
+       )
+       SELECT
+         (SELECT COUNT(*) FROM participation)::int as total_bets,
+         -- Wins: include wager wins plus settled share wins recorded as SETTLE trades with positive cost
+         ((SELECT COUNT(*) FROM wagers w WHERE w.user_id = $1 AND w.status = 'WON')
+           + (SELECT COUNT(*) FROM trades t WHERE t.user_id = $1 AND t.side = 'SETTLE' AND t.cost > 0))::int as wins,
+         (SELECT COUNT(*) FROM wagers w WHERE w.user_id = $1 AND w.status = 'LOST')::int as losses,
+         -- Total winnings: sum wager payouts plus settlement trade payouts
+         ((SELECT COALESCE(SUM(CASE WHEN w.status = 'WON' THEN w.payout ELSE 0 END),0) FROM wagers w WHERE w.user_id = $1)
+           + (SELECT COALESCE(SUM(CASE WHEN t.side = 'SETTLE' THEN t.cost ELSE 0 END),0) FROM trades t WHERE t.user_id = $1))::numeric as total_winnings,
+         (SELECT COALESCE(SUM(w.amount),0) FROM wagers w WHERE w.user_id = $1)::numeric as total_staked
+       `,
       [user.id]
     );
 
@@ -312,10 +323,11 @@ router.get('/bets', authenticateUser, async (req, res, next) => {
     const { status, cursor, limit = '20', search } = req.query;
     const limitNum = parseInt(limit as string, 10);
 
-    // Build a unified query: bets where user has wagers OR user_shares
+    // Build a unified query: bets where user has wagers OR user_shares OR trades (LMSR participation)
     let whereClause = `(
       EXISTS (SELECT 1 FROM wagers w2 WHERE w2.bet_id = b.id AND w2.user_id = $1)
       OR EXISTS (SELECT 1 FROM user_shares us2 WHERE us2.bet_id = b.id AND us2.user_id = $1 AND us2.shares > 0.001)
+      OR EXISTS (SELECT 1 FROM trades t2 WHERE t2.bet_id = b.id AND t2.user_id = $1)
     )`;
     const params: any[] = [user.id];
     let paramIndex = 2;

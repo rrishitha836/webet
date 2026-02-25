@@ -26,18 +26,15 @@ export function useSocket() {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('WebSocket connected');
       setIsConnected(true);
     });
 
     socket.on('disconnect', () => {
-      console.log('WebSocket disconnected');
       setIsConnected(false);
     });
 
     // Listen for bet updates (includes LMSR price changes from trades)
     socket.on('betUpdate', (data) => {
-      console.log('Bet update received:', data);
       const betId = data?.data?.bet?.betId || data?.betId;
       if (betId) {
         queryClient.invalidateQueries({ queryKey: ['bets', betId] });
@@ -66,19 +63,16 @@ export function useSocket() {
 
     // Listen for odds changes
     socket.on('oddsUpdate', (data) => {
-      console.log('Odds update received:', data);
       queryClient.invalidateQueries({ queryKey: ['bets', data.betId] });
     });
 
     // Listen for new notifications
     socket.on('notification', (data) => {
-      console.log('New notification:', data);
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     });
 
     // Listen for bet resolution
     socket.on('betResolved', (data) => {
-      console.log('Bet resolved:', data);
       queryClient.invalidateQueries({ queryKey: ['bets', data.betId] });
       queryClient.invalidateQueries({ queryKey: ['users', 'bets'] });
       queryClient.invalidateQueries({ queryKey: ['users', 'profile'] });      queryClient.invalidateQueries({ queryKey: ['trading', 'prices', data.betId] });

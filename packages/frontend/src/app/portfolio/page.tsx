@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePortfolio, useTradeHistory, type Position, type TradeHistoryItem } from '@/hooks/useTrading';
 import { useRouter } from 'next/navigation';
+import UserLayout from '@/components/layout/UserLayout';
 
 const PNL_COLORS = {
   positive: 'text-emerald-600',
@@ -42,25 +43,15 @@ export default function PortfolioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+    <UserLayout>
+      <div className="bg-gray-50 dark:bg-gray-900 min-h-full">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-4 text-sm font-medium transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back
-          </button>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Portfolio</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Your positions and trade history</p>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Portfolio</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Your positions and trade history</p>
+          </div>
         </div>
-      </div>
-
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 space-y-6">
         {/* Summary Cards */}
         {portfolio && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -280,6 +271,7 @@ export default function PortfolioPage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </UserLayout>
   );
 }

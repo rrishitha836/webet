@@ -176,6 +176,10 @@ export function useUserProfile() {
       const data = await res.json();
       return data.data;
     },
+    // Keep profile reasonably fresh for dashboard stats — poll in background
+    staleTime: 0,
+    refetchInterval: 15000, // refetch every 15s
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -263,39 +267,5 @@ export function useLeaderboard(limit = 50) {
       return data.data;
     },
     staleTime: 30000,
-  });
-}
-
-// ─── Activity Feed ──────────────────────────────────────────────────────────
-
-export interface ActivityItem {
-  id: string;
-  type: 'TRADE';
-  side: 'BUY' | 'SELL';
-  shares: number;
-  cost: number;
-  avgPrice: number;
-  createdAt: string;
-  userName: string;
-  userAvatar: string | null;
-  betId: string;
-  betTitle: string;
-  outcomeIndex: number;
-  outcomeLabel: string;
-}
-
-export function useActivityFeed(limit = 30) {
-  return useQuery<{ data: ActivityItem[]; pagination: { cursor: string | null; hasMore: boolean } }>({
-    queryKey: ['activity', limit],
-    queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/users/activity?limit=${limit}`, {
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to fetch activity');
-      const json = await res.json();
-      return { data: json.data, pagination: json.pagination };
-    },
-    staleTime: 15000,
-    refetchInterval: 30000,
   });
 }

@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import UserLayout from '@/components/layout/UserLayout';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -106,22 +107,13 @@ export default function ProposeMarketPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-4 text-sm font-medium transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Propose a Market</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Suggest a prediction market for the community. Admins will review and publish approved proposals.</p>
-        </div>
+    <UserLayout>
+      <div className="bg-gray-50 dark:bg-gray-900 min-h-full">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Propose a Market</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Suggest a prediction market for the community. Admins will review and publish approved proposals.</p>
+          </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 space-y-5 mb-8">
@@ -275,7 +267,8 @@ export default function ProposeMarketPage() {
             </div>
           )}
         </div>
+        </div>
       </div>
-    </div>
+    </UserLayout>
   );
 }

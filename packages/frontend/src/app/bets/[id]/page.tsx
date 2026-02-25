@@ -13,6 +13,7 @@ import { PriceChart } from '@/components/trading/PriceChart';
 import { CommentsSection } from '@/components/social/CommentsSection';
 import { RelatedMarkets } from '@/components/bets/RelatedMarkets';
 import { useRouter } from 'next/navigation';
+import UserLayout from '@/components/layout/UserLayout';
 
 export default function BetDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -88,20 +89,11 @@ export default function BetDetailPage({ params }: { params: { id: string } }) {
   const sc = statusConfig[bet.status] || statusConfig.CLOSED;
 
   return (
+    <UserLayout>
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-4 text-sm font-medium transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back
-          </button>
-
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
@@ -281,5 +273,6 @@ export default function BetDetailPage({ params }: { params: { id: string } }) {
         <div className="fixed inset-0 z-0" onClick={() => setShowShareMenu(false)} />
       )}
     </div>
+    </UserLayout>
   );
 }
