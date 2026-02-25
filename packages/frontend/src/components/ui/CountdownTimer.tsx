@@ -47,24 +47,24 @@ export function CountdownTimer({ targetDate, onExpire }: CountdownTimerProps) {
   return (
     <div className="flex gap-2 items-center">
       {timeLeft.days > 0 && (
-        <div className="flex flex-col items-center bg-gray-100 px-3 py-2 rounded-lg">
-          <span className="text-xl font-bold text-gray-900">{timeLeft.days}</span>
-          <span className="text-xs text-gray-600">Days</span>
+        <div className="flex flex-col items-center bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg">
+          <span className="text-xl font-bold text-gray-900 dark:text-white">{timeLeft.days}</span>
+          <span className="text-xs text-gray-600 dark:text-gray-400">Days</span>
         </div>
       )}
-      <div className="flex flex-col items-center bg-gray-100 px-3 py-2 rounded-lg">
-        <span className="text-xl font-bold text-gray-900">{String(timeLeft.hours).padStart(2, '0')}</span>
-        <span className="text-xs text-gray-600">Hours</span>
+      <div className="flex flex-col items-center bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg">
+        <span className="text-xl font-bold text-gray-900 dark:text-white">{String(timeLeft.hours).padStart(2, '0')}</span>
+        <span className="text-xs text-gray-600 dark:text-gray-400">Hours</span>
       </div>
-      <span className="text-2xl font-bold text-gray-400">:</span>
-      <div className="flex flex-col items-center bg-gray-100 px-3 py-2 rounded-lg">
-        <span className="text-xl font-bold text-gray-900">{String(timeLeft.minutes).padStart(2, '0')}</span>
-        <span className="text-xs text-gray-600">Mins</span>
+      <span className="text-2xl font-bold text-gray-400 dark:text-gray-500">:</span>
+      <div className="flex flex-col items-center bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg">
+        <span className="text-xl font-bold text-gray-900 dark:text-white">{String(timeLeft.minutes).padStart(2, '0')}</span>
+        <span className="text-xs text-gray-600 dark:text-gray-400">Mins</span>
       </div>
-      <span className="text-2xl font-bold text-gray-400">:</span>
-      <div className="flex flex-col items-center bg-gray-100 px-3 py-2 rounded-lg">
-        <span className="text-xl font-bold text-gray-900">{String(timeLeft.seconds).padStart(2, '0')}</span>
-        <span className="text-xs text-gray-600">Secs</span>
+      <span className="text-2xl font-bold text-gray-400 dark:text-gray-500">:</span>
+      <div className="flex flex-col items-center bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg">
+        <span className="text-xl font-bold text-gray-900 dark:text-white">{String(timeLeft.seconds).padStart(2, '0')}</span>
+        <span className="text-xs text-gray-600 dark:text-gray-400">Secs</span>
       </div>
     </div>
   );

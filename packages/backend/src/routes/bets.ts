@@ -347,7 +347,7 @@ router.post('/:id/wager', authenticateUser, betRateLimiter, async (req, res, nex
         success: false,
         error: {
           code: ERROR_CODES.VALIDATION_ERROR,
-          message: 'Amount must be at least 1 coin',
+          message: 'Amount must be at least $1.00',
         },
       });
     }

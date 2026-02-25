@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Fetch open bets (PRD: /api/v1/bets)
-export function useActiveBets(filters?: { category?: string; status?: string }, enabled: boolean = true) {
+export function useActiveBets(filters?: { category?: string; status?: string; sort?: string; search?: string }, enabled: boolean = true) {
   return useQuery({
     queryKey: ['bets', 'active', filters],
     queryFn: async () => {
@@ -12,6 +12,12 @@ export function useActiveBets(filters?: { category?: string; status?: string }, 
         params.append('category', filters.category);
       }
       params.append('status', 'OPEN');
+      if (filters?.sort) {
+        params.append('sort', filters.sort);
+      }
+      if (filters?.search) {
+        params.append('search', filters.search);
+      }
       
       const res = await fetch(`${API_URL}/api/bets?${params}`, {
         credentials: 'include',
@@ -28,11 +34,17 @@ export function useActiveBets(filters?: { category?: string; status?: string }, 
         endTime: bet.closeTime,
         status: bet.status,
         totalPool: bet.totalPool,
+        liquidityB: bet.liquidityB,
+        totalVolume: bet.totalVolume,
+        outcomeShares: bet.outcomeShares,
+        marketType: bet.marketType,
         outcomes: bet.outcomes?.map((o: any) => ({
           id: o.id,
           text: o.label,
           totalStake: o.totalCoins,
           totalWagers: o.totalWagers,
+          currentPrice: o.currentPrice,
+          sharesQty: o.sharesQty,
         })) || [],
         _count: { participants: bet.participantCount },
         slug: bet.slug,
@@ -59,11 +71,19 @@ export function useBet(betId: string) {
         ...bet,
         question: bet.title,
         endTime: bet.closeTime,
+        // LMSR prediction market fields
+        liquidityB: bet.liquidityB,
+        totalVolume: bet.totalVolume,
+        outcomeShares: bet.outcomeShares,
+        marketType: bet.marketType,
         outcomes: bet.outcomes?.map((o: any) => ({
           id: o.id,
           text: o.label,
           totalStake: o.totalCoins,
           totalWagers: o.totalWagers,
+          sortOrder: o.sortOrder,
+          currentPrice: o.currentPrice,
+          sharesQty: o.sharesQty,
         })) || [],
         _count: {
           participants: bet.participantCount,
@@ -212,5 +232,70 @@ export function useMarkNotificationRead() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
+  });
+}
+
+// ─── Leaderboard ────────────────────────────────────────────────────────────
+
+export interface LeaderboardEntry {
+  rank: number;
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  balance: number;
+  portfolioValue: number;
+  netWorth: number;
+  totalBets: number;
+  totalWins: number;
+  activePositions: number;
+  winRate: number;
+}
+
+export function useLeaderboard(limit = 50) {
+  return useQuery<LeaderboardEntry[]>({
+    queryKey: ['leaderboard', limit],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/api/users/leaderboard?limit=${limit}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch leaderboard');
+      const data = await res.json();
+      return data.data;
+    },
+    staleTime: 30000,
+  });
+}
+
+// ─── Activity Feed ──────────────────────────────────────────────────────────
+
+export interface ActivityItem {
+  id: string;
+  type: 'TRADE';
+  side: 'BUY' | 'SELL';
+  shares: number;
+  cost: number;
+  avgPrice: number;
+  createdAt: string;
+  userName: string;
+  userAvatar: string | null;
+  betId: string;
+  betTitle: string;
+  outcomeIndex: number;
+  outcomeLabel: string;
+}
+
+export function useActivityFeed(limit = 30) {
+  return useQuery<{ data: ActivityItem[]; pagination: { cursor: string | null; hasMore: boolean } }>({
+    queryKey: ['activity', limit],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/api/users/activity?limit=${limit}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch activity');
+      const json = await res.json();
+      return { data: json.data, pagination: json.pagination };
+    },
+    staleTime: 15000,
+    refetchInterval: 30000,
   });
 }

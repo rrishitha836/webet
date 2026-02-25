@@ -236,7 +236,7 @@ router.post('/:betId/buy', authenticateUser, async (req, res, next) => {
         success: false,
         error: {
           code: ERROR_CODES.INSUFFICIENT_BALANCE,
-          message: `Insufficient balance. Trade costs ${tradeCost.toFixed(2)} coins but you have ${parseFloat(currentUser.balance).toFixed(2)}.`,
+          message: `Insufficient balance. Trade costs $${tradeCost.toFixed(2)} but you have $${parseFloat(currentUser.balance).toFixed(2)}.`,
         },
       });
     }

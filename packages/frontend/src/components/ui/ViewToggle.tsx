@@ -7,13 +7,13 @@ interface ViewToggleProps {
 
 export default function ViewToggle({ view, onChange }: ViewToggleProps) {
   return (
-    <div className="inline-flex items-center bg-gray-100 rounded-lg p-0.5">
+    <div className="inline-flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
       <button
         onClick={() => onChange('grid')}
         className={`inline-flex items-center justify-center w-8 h-8 rounded-md transition-all ${
           view === 'grid'
-            ? 'bg-white text-indigo-600 shadow-sm'
-            : 'text-gray-400 hover:text-gray-600'
+            ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm'
+            : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
         }`}
         title="Grid view"
       >
@@ -25,8 +25,8 @@ export default function ViewToggle({ view, onChange }: ViewToggleProps) {
         onClick={() => onChange('list')}
         className={`inline-flex items-center justify-center w-8 h-8 rounded-md transition-all ${
           view === 'list'
-            ? 'bg-white text-indigo-600 shadow-sm'
-            : 'text-gray-400 hover:text-gray-600'
+            ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm'
+            : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
         }`}
         title="List view"
       >

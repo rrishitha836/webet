@@ -35,11 +35,33 @@ export function useSocket() {
       setIsConnected(false);
     });
 
-    // Listen for bet updates
+    // Listen for bet updates (includes LMSR price changes from trades)
     socket.on('betUpdate', (data) => {
       console.log('Bet update received:', data);
-      queryClient.invalidateQueries({ queryKey: ['bets', data.betId] });
+      const betId = data?.data?.bet?.betId || data?.betId;
+      if (betId) {
+        queryClient.invalidateQueries({ queryKey: ['bets', betId] });
+        queryClient.invalidateQueries({ queryKey: ['trading', 'prices', betId] });
+        queryClient.invalidateQueries({ queryKey: ['trading', 'chart', betId] });
+      }
       queryClient.invalidateQueries({ queryKey: ['bets', 'active'] });
+    });
+
+    // BET_UPDATE event type (emitted by SocketService via WSEvent)
+    socket.on('BET_UPDATE', (event: any) => {
+      const betId = event?.data?.bet?.betId;
+      if (betId) {
+        queryClient.invalidateQueries({ queryKey: ['trading', 'prices', betId] });
+        queryClient.invalidateQueries({ queryKey: ['trading', 'chart', betId] });
+        queryClient.invalidateQueries({ queryKey: ['bets', betId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['bets', 'active'] });
+    });
+
+    // Listen for balance updates
+    socket.on('USER_BALANCE_UPDATE', (event: any) => {
+      queryClient.invalidateQueries({ queryKey: ['users', 'profile'] });
+      queryClient.invalidateQueries({ queryKey: ['trading', 'portfolio'] });
     });
 
     // Listen for odds changes
@@ -59,8 +81,15 @@ export function useSocket() {
       console.log('Bet resolved:', data);
       queryClient.invalidateQueries({ queryKey: ['bets', data.betId] });
       queryClient.invalidateQueries({ queryKey: ['users', 'bets'] });
-      queryClient.invalidateQueries({ queryKey: ['users', 'profile'] });
+      queryClient.invalidateQueries({ queryKey: ['users', 'profile'] });      queryClient.invalidateQueries({ queryKey: ['trading', 'prices', data.betId] });
+      queryClient.invalidateQueries({ queryKey: ['trading', 'portfolio'] });
     });
+
+    // BET_SETTLED event type
+    socket.on('BET_SETTLED', (event: any) => {
+      queryClient.invalidateQueries({ queryKey: ['users', 'profile'] });
+      queryClient.invalidateQueries({ queryKey: ['trading', 'portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ['bets', 'active'] });    });
 
     return () => {
       if (socketRef.current) {

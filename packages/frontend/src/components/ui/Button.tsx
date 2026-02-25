@@ -22,7 +22,7 @@ export function Button({
     secondary: 'bg-gray-600 text-white hover:bg-gray-700 focus:ring-4 focus:ring-gray-300',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-4 focus:ring-red-300',
     success: 'bg-green-600 text-white hover:bg-green-700 focus:ring-4 focus:ring-green-300',
-    outline: 'border-2 border-blue-600 text-blue-600 hover:bg-blue-50 focus:ring-4 focus:ring-blue-300',
+    outline: 'border-2 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800',
   };
 
   const sizes = {

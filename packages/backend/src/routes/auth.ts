@@ -212,6 +212,7 @@ router.post('/admin/login', async (req, res, next) => {
           email: admin.email,
           displayName: admin.display_name,
           role: admin.role,
+          lastLoginAt: admin.last_login_at,
         },
       },
     });
@@ -302,7 +303,7 @@ router.get('/admin/me', authenticateAdmin, async (req, res, next) => {
     const admin = req.user as any;
     
     const fullAdmin = await queryOne(
-      `SELECT id, email, display_name, avatar_url, role, created_at 
+      `SELECT id, email, display_name, avatar_url, role, last_login_at, created_at 
        FROM users WHERE id = $1`,
       [admin.id]
     );
@@ -325,6 +326,7 @@ router.get('/admin/me', authenticateAdmin, async (req, res, next) => {
         displayName: fullAdmin.display_name,
         avatarUrl: fullAdmin.avatar_url,
         role: fullAdmin.role,
+        lastLoginAt: fullAdmin.last_login_at,
         createdAt: fullAdmin.created_at,
       },
     });

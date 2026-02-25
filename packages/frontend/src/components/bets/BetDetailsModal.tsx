@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useBet } from '@/hooks/useApi';
 
 interface BetDetailsModalProps {
@@ -38,6 +39,7 @@ function getOutcomeColor(label: string) {
 }
 
 export function BetDetailsModal({ isOpen, onClose, betId, userWager }: BetDetailsModalProps) {
+  const router = useRouter();
   const { data: bet, isLoading, error } = useBet(betId);
 
   // Prevent background scroll when modal is open
@@ -106,7 +108,7 @@ export function BetDetailsModal({ isOpen, onClose, betId, userWager }: BetDetail
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-50 transition-colors duration-300">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/50 backdrop-blur-sm animate-backdrop"
@@ -116,18 +118,18 @@ export function BetDetailsModal({ isOpen, onClose, betId, userWager }: BetDetail
       {/* ── Mobile: Bottom Sheet ── */}
       <div className="md:hidden fixed inset-x-0 bottom-0 z-50 animate-modal-slide-up">
         <div 
-          className="bg-white rounded-t-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Sticky header */}
-          <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 pt-3 pb-3 flex-shrink-0">
+          <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 pt-3 pb-3 flex-shrink-0">
             {/* Drag handle */}
-            <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-3" />
+            <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600 mx-auto mb-3" />
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-gray-900">Bet Details</h3>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Bet Details</h3>
               <button
                 onClick={onClose}
-                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -147,6 +149,7 @@ export function BetDetailsModal({ isOpen, onClose, betId, userWager }: BetDetail
               getWagerStatusColor={getWagerStatusColor}
               formatDate={formatDate}
               isMobile={true}
+              onNavigate={(path: string) => { onClose(); router.push(path); }}
             />
             {/* Bottom safe-area padding */}
             <div className="h-6" />
@@ -157,16 +160,16 @@ export function BetDetailsModal({ isOpen, onClose, betId, userWager }: BetDetail
       {/* ── Desktop: Centered Modal ── */}
       <div className="hidden md:flex fixed inset-0 z-50 items-center justify-center p-6 lg:p-8">
         <div 
-          className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-modal-fade-scale"
+          className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-modal-fade-scale"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm px-6 py-4 border-b border-gray-100 flex-shrink-0">
+          <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Bet Details</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Bet Details</h3>
               <button
                 onClick={onClose}
-                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -186,6 +189,7 @@ export function BetDetailsModal({ isOpen, onClose, betId, userWager }: BetDetail
               getWagerStatusColor={getWagerStatusColor}
               formatDate={formatDate}
               isMobile={false}
+              onNavigate={(path: string) => { onClose(); router.push(path); }}
             />
           </div>
         </div>
@@ -207,6 +211,7 @@ function ModalBody({
   getWagerStatusColor,
   formatDate,
   isMobile,
+  onNavigate,
 }: {
   bet: any;
   isLoading: boolean;
@@ -216,6 +221,7 @@ function ModalBody({
   getWagerStatusColor: (s: string) => string;
   formatDate: (s: string) => string;
   isMobile: boolean;
+  onNavigate: (path: string) => void;
 }) {
   if (isLoading) {
     return (
@@ -233,8 +239,8 @@ function ModalBody({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <h3 className="text-base font-medium text-gray-900 mb-2">Failed to load bet details</h3>
-        <p className="text-gray-500 text-sm">Please try again later.</p>
+        <h3 className="text-base font-medium text-gray-900 dark:text-white mb-2">Failed to load bet details</h3>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">Please try again later.</p>
       </div>
     );
   }
@@ -246,7 +252,7 @@ function ModalBody({
       {/* ── Title & Status ── */}
       <div>
         <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-          <h2 className={`font-bold text-gray-900 flex-1 leading-snug ${isMobile ? 'text-lg' : 'text-xl'}`}>
+          <h2 className={`font-bold text-gray-900 dark:text-white flex-1 leading-snug ${isMobile ? 'text-lg' : 'text-xl'}`}>
             {bet.question}
           </h2>
           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -261,33 +267,33 @@ function ModalBody({
           </div>
         </div>
         {bet.description && (
-          <p className="text-gray-600 text-sm leading-relaxed">{bet.description}</p>
+          <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{bet.description}</p>
         )}
       </div>
 
       {/* ── Info Grid ── */}
       <div className={`grid gap-2.5 ${isMobile ? 'grid-cols-2' : 'grid-cols-4'}`}>
-        <div className="bg-gray-50 rounded-xl p-3">
-          <p className="text-[11px] text-gray-500 mb-0.5">Total Pool</p>
-          <p className={`font-bold text-gray-900 ${isMobile ? 'text-base' : 'text-lg'}`}>
-            ${bet.totalPool?.toLocaleString() || 0}
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">{bet.liquidityB ? 'Trading Volume' : 'Total Pool'}</p>
+          <p className={`font-bold text-gray-900 dark:text-white ${isMobile ? 'text-base' : 'text-lg'}`}>
+            ${(bet.totalPool || bet.totalVolume || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
           </p>
         </div>
-        <div className="bg-gray-50 rounded-xl p-3">
-          <p className="text-[11px] text-gray-500 mb-0.5">Participants</p>
-          <p className={`font-bold text-gray-900 ${isMobile ? 'text-base' : 'text-lg'}`}>
-            {bet._count?.participants || 0}
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">Participants</p>
+          <p className={`font-bold text-gray-900 dark:text-white ${isMobile ? 'text-base' : 'text-lg'}`}>
+            {bet._count?.participants || bet.participantCount || 0}
           </p>
         </div>
-        <div className="bg-gray-50 rounded-xl p-3">
-          <p className="text-[11px] text-gray-500 mb-0.5">Category</p>
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">Category</p>
           <p className="text-sm font-semibold text-blue-600">{bet.category || 'N/A'}</p>
         </div>
-        <div className="bg-gray-50 rounded-xl p-3">
-          <p className="text-[11px] text-gray-500 mb-0.5">
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">
             {bet.status === 'OPEN' ? 'Closes' : bet.status === 'RESOLVED' ? 'Settled' : 'Closed'}
           </p>
-          <p className="text-sm font-medium text-gray-900">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">
             {bet.endTime ? formatDate(bet.endTime) : 'N/A'}
           </p>
         </div>
@@ -327,15 +333,31 @@ function ModalBody({
       {/* ── Outcome Distribution ── */}
       {bet.outcomes && bet.outcomes.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Outcome Distribution</h3>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Outcome Distribution</h3>
           <div className="space-y-2.5">
-            {bet.outcomes.map((outcome: any) => {
-              const totalPeople = bet.outcomes?.reduce((sum: number, o: any) => sum + (o.totalWagers || 0), 0) || 0;
-              const outcomePeople = outcome.totalWagers || 0;
-              const percentage = totalPeople > 0 ? (outcomePeople / totalPeople) * 100 : 0;
-              const isUserOutcome = userWager?.outcome?.id === outcome.id;
-              const isWinningOutcome = bet.status === 'RESOLVED' && userWager?.status === 'WON' && isUserOutcome;
-              const color = getOutcomeColor(outcome.text || outcome.label || '');
+            {(() => {
+              // Determine if this is an LMSR market with price data
+              const hasLMSRPrices = bet.outcomes.some((o: any) => o.currentPrice != null && o.currentPrice > 0);
+              
+              return bet.outcomes.map((outcome: any) => {
+                let percentage: number;
+                let subLabel: string;
+                
+                if (hasLMSRPrices) {
+                  // Use LMSR prices for distribution (probability-based)
+                  percentage = (outcome.currentPrice || 0) * 100;
+                  subLabel = `${(outcome.currentPrice * 100).toFixed(1)}¢`;
+                } else {
+                  // Fallback to wager-based distribution  
+                  const totalPeople = bet.outcomes?.reduce((sum: number, o: any) => sum + (o.totalWagers || 0), 0) || 0;
+                  const outcomePeople = outcome.totalWagers || 0;
+                  percentage = totalPeople > 0 ? (outcomePeople / totalPeople) * 100 : 0;
+                  subLabel = `${outcomePeople} ${outcomePeople === 1 ? 'person' : 'people'}`;
+                }
+
+                const isUserOutcome = userWager?.outcome?.id === outcome.id;
+                const isWinningOutcome = bet.status === 'RESOLVED' && userWager?.status === 'WON' && isUserOutcome;
+                const color = getOutcomeColor(outcome.text || outcome.label || '');
               
               return (
                 <div 
@@ -345,13 +367,13 @@ function ModalBody({
                       ? `${color.border} ${color.bg} ring-2 ${color.ring}` 
                       : isUserOutcome 
                         ? 'border-blue-300 bg-blue-50/50 ring-1 ring-blue-200'
-                        : 'border-gray-200 hover:border-gray-300'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2 gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                       <div className={`w-3 h-3 rounded-full flex-shrink-0 ${color.bar}`} />
-                      <span className={`font-medium text-sm truncate ${isUserOutcome ? color.text : 'text-gray-900'}`}>
+                      <span className={`font-medium text-sm truncate ${isUserOutcome ? color.text : 'text-gray-900 dark:text-white'}`}>
                         {outcome.text || outcome.label || 'Unknown'}
                       </span>
                       {isUserOutcome && (
@@ -369,13 +391,13 @@ function ModalBody({
                       <p className={`text-sm font-bold ${color.text}`}>
                         {percentage.toFixed(0)}%
                       </p>
-                      <p className="text-[10px] text-gray-500 whitespace-nowrap">
-                        {outcomePeople} {outcomePeople === 1 ? 'person' : 'people'}
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        {subLabel}
                       </p>
                     </div>
                   </div>
                   
-                  <div className="w-full bg-gray-100 rounded-full h-2">
+                  <div className="w-full bg-gray-100 dark:bg-gray-600 rounded-full h-2">
                     <div
                       className={`h-2 rounded-full transition-all duration-500 ${color.bar}`}
                       style={{ width: `${Math.max(percentage, 2)}%` }}
@@ -383,7 +405,8 @@ function ModalBody({
                   </div>
                 </div>
               );
-            })}
+            });
+            })()}
           </div>
         </div>
       )}
@@ -412,6 +435,17 @@ function ModalBody({
           </p>
         </div>
       )}
+
+      {/* ── Action Buttons ── */}
+      <div className={`flex gap-3 pt-1 ${isMobile ? 'flex-col' : ''}`}>
+        <button
+          onClick={() => onNavigate(`/bets/${bet.id}`)}
+          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+          {bet.status === 'OPEN' ? 'Trade / Sell Shares' : 'View Market'}
+        </button>
+      </div>
     </div>
   );
 }

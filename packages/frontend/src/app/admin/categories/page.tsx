@@ -21,21 +21,34 @@ interface BetCounts {
   categoryStats: CategoryStats[];
 }
 
+// Auto-assign icon/color based on category name
+const CATEGORY_STYLES: Record<string, { icon: string; color: string }> = {
+  SPORTS: { icon: '⚽', color: 'bg-green-100 text-green-700' },
+  POLITICS: { icon: '🏛️', color: 'bg-blue-100 text-blue-700' },
+  ENTERTAINMENT: { icon: '🎬', color: 'bg-purple-100 text-purple-700' },
+  TECHNOLOGY: { icon: '💻', color: 'bg-gray-100 text-gray-700' },
+  CULTURE: { icon: '🎨', color: 'bg-pink-100 text-pink-700' },
+  OTHER: { icon: '📋', color: 'bg-yellow-100 text-yellow-700' },
+  SCIENCE: { icon: '🔬', color: 'bg-teal-100 text-teal-700' },
+  FINANCE: { icon: '💰', color: 'bg-amber-100 text-amber-700' },
+  GAMING: { icon: '🎮', color: 'bg-indigo-100 text-indigo-700' },
+  HEALTH: { icon: '🏥', color: 'bg-red-100 text-red-700' },
+  CRYPTO: { icon: '₿', color: 'bg-orange-100 text-orange-700' },
+  WORLD: { icon: '🌍', color: 'bg-cyan-100 text-cyan-700' },
+};
+
+const DEFAULT_STYLE = { icon: '📂', color: 'bg-slate-100 text-slate-700' };
+
+function getCategoryStyle(name: string) {
+  return CATEGORY_STYLES[name.toUpperCase()] || DEFAULT_STYLE;
+}
+
 export default function CategoriesPage() {
   const [categoryData, setCategoryData] = useState<BetCounts | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { admin } = useAuth();
-
-  const categories = [
-    { name: 'SPORTS', icon: '⚽', color: 'bg-green-100 text-green-700' },
-    { name: 'POLITICS', icon: '🏛️', color: 'bg-blue-100 text-blue-700' },
-    { name: 'ENTERTAINMENT', icon: '🎬', color: 'bg-purple-100 text-purple-700' },
-    { name: 'TECHNOLOGY', icon: '💻', color: 'bg-gray-100 text-gray-700' },
-    { name: 'CULTURE', icon: '🎨', color: 'bg-pink-100 text-pink-700' },
-    { name: 'OTHER', icon: '📋', color: 'bg-yellow-100 text-yellow-700' }
-  ];
 
   const fetchCategoryData = async () => {
     try {
@@ -64,13 +77,6 @@ export default function CategoriesPage() {
     }
   }, [admin]);
 
-  const getCategoryStats = (categoryName: string) => {
-    if (!categoryData) return { count: 0, activeCount: 0, resolvedCount: 0 };
-    
-    const stats = categoryData.categoryStats.find(stat => stat.category === categoryName);
-    return stats || { count: 0, activeCount: 0, resolvedCount: 0 };
-  };
-
   return (
     <AdminLayout>
       <AdminPageHeader 
@@ -87,7 +93,7 @@ export default function CategoriesPage() {
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6">
           {error}
         </div>
       )}
@@ -141,15 +147,15 @@ export default function CategoriesPage() {
 
           {/* Categories Grid / List */}
           <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
-            {categories.map((category) => {
-              const stats = getCategoryStats(category.name);
+            {categoryData.categoryStats.map((stats) => {
+              const style = getCategoryStyle(stats.category);
               return viewMode === 'grid' ? (
-                <div key={category.name} className="bg-white rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden cursor-pointer group">
-                  <div className={`${category.color} px-6 py-5`}>
+                <div key={stats.category} className="bg-white rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden cursor-pointer group">
+                  <div className={`${style.color} px-6 py-5`}>
                     <div className="flex items-center">
-                      <span className="text-2xl mr-3">{category.icon}</span>
+                      <span className="text-2xl mr-3">{style.icon}</span>
                       <div>
-                        <h3 className="text-lg font-semibold">{category.name}</h3>
+                        <h3 className="text-lg font-semibold">{stats.category}</h3>
                         <p className="text-sm opacity-70">
                           {stats.count} total bet{stats.count !== 1 ? 's' : ''}
                         </p>
@@ -174,7 +180,7 @@ export default function CategoriesPage() {
                     </div>
 
                     <Link
-                      href={`/admin/bets?category=${category.name}`}
+                      href={`/admin/bets?category=${stats.category}`}
                       className="block w-full text-center bg-gray-50 hover:bg-indigo-50 text-gray-700 hover:text-indigo-700 py-2.5 rounded-xl transition-colors text-sm font-semibold border border-gray-200 hover:border-indigo-200"
                     >
                       View Bets →
@@ -183,17 +189,17 @@ export default function CategoriesPage() {
                 </div>
               ) : (
                 <Link
-                  key={category.name}
-                  href={`/admin/bets?category=${category.name}`}
+                  key={stats.category}
+                  href={`/admin/bets?category=${stats.category}`}
                   className="block bg-white rounded-2xl border border-gray-200/80 hover:border-indigo-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-5 cursor-pointer group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl ${category.color} flex items-center justify-center text-xl shrink-0`}>
-                      {category.icon}
+                    <div className={`w-12 h-12 rounded-xl ${style.color} flex items-center justify-center text-xl shrink-0`}>
+                      {style.icon}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-gray-900 group-hover:text-indigo-700 transition-colors">{category.name}</h3>
-                      <p className="text-xs text-gray-500">{stats.count} total bet{stats.count !== 1 ? 's' : ''}</p>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-indigo-700 dark:group-hover:text-indigo-400 transition-colors">{stats.category}</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{stats.count} total bet{stats.count !== 1 ? 's' : ''}</p>
                     </div>
                     <div className="hidden sm:flex items-center gap-5 shrink-0">
                       <div className="text-center px-3 py-1.5 rounded-lg bg-green-50 border border-green-100">
@@ -205,7 +211,7 @@ export default function CategoriesPage() {
                         <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider">Resolved</p>
                       </div>
                       <div className="text-center px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100">
-                        <p className="font-bold text-gray-900 text-sm">{stats.count}</p>
+                        <p className="font-bold text-gray-900 dark:text-white text-sm">{stats.count}</p>
                         <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Total</p>
                       </div>
                     </div>
@@ -221,8 +227,8 @@ export default function CategoriesPage() {
           </div>
 
           {/* Quick Actions */}
-          <div className="mt-8 bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6 sm:p-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-5">Quick Actions</h3>
+          <div className="mt-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-6 sm:p-8 transition-colors duration-300">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-5">Quick Actions</h3>
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/admin/bets/create"

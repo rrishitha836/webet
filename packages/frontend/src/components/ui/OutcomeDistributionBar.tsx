@@ -49,8 +49,8 @@ export function OutcomeDistributionBar({ outcomes }: OutcomeDistributionBarProps
           return (
             <div key={outcome.id} className="flex items-center gap-2">
               <div className={`w-4 h-4 rounded ${bgColor}`} />
-              <span className="text-sm text-gray-700 truncate flex-1">{outcome.text}</span>
-              <span className="text-sm font-semibold text-gray-900">{percentage.toFixed(1)}%</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">{outcome.text}</span>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">{percentage.toFixed(1)}%</span>
             </div>
           );
         })}

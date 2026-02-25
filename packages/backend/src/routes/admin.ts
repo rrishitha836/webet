@@ -16,6 +16,8 @@ router.get('/stats', authenticateAdmin, async (req, res, next) => {
         (SELECT COUNT(*) FROM users WHERE is_suspended = false) as active_users,
         (SELECT COUNT(*) FROM bets) as total_bets,
         (SELECT COUNT(*) FROM bets WHERE status = 'OPEN') as open_bets,
+        (SELECT COUNT(*) FROM bets WHERE status = 'OPEN' AND close_time > NOW()) as active_bets,
+        (SELECT COUNT(*) FROM bets WHERE source = 'AI_GENERATED' AND status = 'OPEN') as published_ai_bets,
         (SELECT COUNT(*) FROM ai_suggestions WHERE status = 'PENDING') as pending_ai,
         (SELECT COUNT(*) FROM ai_suggestions WHERE status = 'APPROVED') as approved_ai,
         (SELECT COUNT(*) FROM ai_suggestions WHERE status = 'REJECTED') as rejected_ai,
@@ -24,7 +26,7 @@ router.get('/stats', authenticateAdmin, async (req, res, next) => {
         (SELECT COUNT(*) FROM bets WHERE source = 'AI_GENERATED') as ai_generated_bets,
         (SELECT COUNT(*) FROM bets WHERE source = 'MANUAL') as manual_bets,
         (SELECT COUNT(*) FROM bets WHERE status IN ('CLOSED', 'RESOLVED', 'CANCELLED')) as closed_bets,
-        (SELECT COUNT(*) FROM bets WHERE status = 'OPEN' AND close_time < NOW()) as expired_bets,
+        (SELECT COUNT(*) FROM bets WHERE status = 'CLOSED') as expired_bets,
         (SELECT COALESCE(SUM(balance), 0) FROM users) as total_coins
     `, []);
 
@@ -35,6 +37,8 @@ router.get('/stats', authenticateAdmin, async (req, res, next) => {
         activeUsers: parseInt(stats.active_users),
         totalBets: parseInt(stats.total_bets),
         openBets: parseInt(stats.open_bets),
+        activeBets: parseInt(stats.active_bets),
+        publishedAIBets: parseInt(stats.published_ai_bets),
         pendingAI: parseInt(stats.pending_ai),
         approvedAI: parseInt(stats.approved_ai),
         rejectedAI: parseInt(stats.rejected_ai),
@@ -605,6 +609,19 @@ router.get('/bets', authenticateAdmin, async (req, res, next) => {
         'SELECT * FROM outcomes WHERE bet_id = $1 ORDER BY sort_order',
         [b.id]
       );
+
+      // Compute per-outcome trade volume from the trades table
+      const tradeVolResult = await query(
+        `SELECT outcome_index, COALESCE(SUM(ABS(cost)), 0) as trade_volume
+         FROM trades WHERE bet_id = $1 AND side IN ('BUY', 'SELL')
+         GROUP BY outcome_index`,
+        [b.id]
+      );
+      const tradeVolMap: Record<number, number> = {};
+      for (const tv of tradeVolResult.rows) {
+        tradeVolMap[tv.outcome_index] = parseFloat(tv.trade_volume) || 0;
+      }
+
       return {
         id: b.id,
         title: b.title,
@@ -616,13 +633,17 @@ router.get('/bets', authenticateAdmin, async (req, res, next) => {
         source: b.source,
         closeTime: b.close_time,
         totalPool: b.total_pool,
+        totalVolume: parseFloat(b.total_volume) || 0,
         participantCount: b.participant_count,
+        winningOutcomeId: b.winning_outcome_id,
         createdAt: b.created_at,
         outcomes: outcomesResult.rows.map((o: any) => ({
           id: o.id,
           label: o.label,
           totalWagers: o.total_wagers,
-          totalCoins: o.total_coins,
+          totalCoins: parseFloat(o.total_coins) || 0,
+          tradeVolume: tradeVolMap[o.sort_order] || 0,
+          currentPrice: parseFloat(o.current_price) || 0,
           sortOrder: o.sort_order,
         })),
         createdBy: {
@@ -873,12 +894,12 @@ router.post('/bets/:id/resolve', authenticateAdmin, async (req, res, next) => {
       });
     }
 
-    if (bet.status !== 'CLOSED') {
+    if (bet.status === 'RESOLVED' || bet.status === 'CANCELLED') {
       return res.status(400).json({
         success: false,
         error: {
           code: ERROR_CODES.INVALID_STATUS,
-          message: 'Bet must be closed before resolution',
+          message: 'Bet is already resolved or cancelled',
         },
       });
     }
@@ -937,7 +958,7 @@ router.post('/bets/:id/resolve', authenticateAdmin, async (req, res, next) => {
           await client.query(
             `INSERT INTO notifications (id, user_id, type, title, message)
              VALUES ($1, $2, 'BET_RESOLVED', 'You won!', $3)`,
-            [uuidv4(), wager.user_id, `Your bet on "${ bet.title}" won! You received ${ payout} coins.`]
+            [uuidv4(), wager.user_id, `Your bet on "${ bet.title}" won! You received $${ payout.toFixed(2)}.`]
           );
         } else {
           await client.query(
@@ -962,7 +983,7 @@ router.post('/bets/:id/resolve', authenticateAdmin, async (req, res, next) => {
       for (const pos of allPositions.rows) {
         const shares = parseFloat(pos.shares);
         if (pos.outcome_index === winningOutcomeIndex) {
-          // Winner: each share pays 1 coin
+          // Winner: each share pays $1.00
           const payout = shares;
 
           await client.query(
@@ -979,7 +1000,7 @@ router.post('/bets/:id/resolve', authenticateAdmin, async (req, res, next) => {
           await client.query(
             `INSERT INTO notifications (id, user_id, type, title, message)
              VALUES ($1, $2, 'BET_RESOLVED', 'Your shares won!', $3)`,
-            [uuidv4(), pos.user_id, `Your ${ shares.toFixed(1)} shares on "${ bet.title}" won! Payout: ${ payout.toFixed(2)} coins.`]
+            [uuidv4(), pos.user_id, `Your ${ shares.toFixed(1)} shares on "${ bet.title}" won! Payout: $${ payout.toFixed(2)}.`]
           );
 
           // Emit balance update
@@ -1290,7 +1311,6 @@ router.get('/categories/stats', authenticateAdmin, async (req, res, next) => {
         COUNT(*) FILTER (WHERE status = 'RESOLVED') as resolved_count
       FROM bets
       GROUP BY category
-      ORDER BY COUNT(*) DESC
     `, []);
 
     const totalsResult = await queryOne(`
@@ -1301,28 +1321,24 @@ router.get('/categories/stats', authenticateAdmin, async (req, res, next) => {
       FROM bets
     `, []);
 
-    // Build category stats dynamically from actual data
-    const categoryStats = statsResult.rows.map((stat: any) => ({
-      category: stat.category,
-      count: parseInt(stat.total_count || '0'),
-      activeCount: parseInt(stat.active_count || '0'),
-      resolvedCount: parseInt(stat.resolved_count || '0'),
-    }));
-
-    // Also include known categories that might have 0 bets
-    const knownCategories = ['SPORTS', 'POLITICS', 'ENTERTAINMENT', 'TECHNOLOGY', 'CULTURE', 'OTHER'];
-    for (const cat of knownCategories) {
-      if (!categoryStats.find((s: any) => s.category === cat)) {
-        categoryStats.push({ category: cat, count: 0, activeCount: 0, resolvedCount: 0 });
-      }
-    }
+    const allCategories = ['SPORTS', 'POLITICS', 'ENTERTAINMENT', 'TECHNOLOGY', 'CULTURE', 'OTHER'];
+    
+    const categoryStatsMap = allCategories.map(category => {
+      const stat = statsResult.rows.find((s: any) => s.category === category);
+      return {
+        category,
+        count: parseInt(stat?.total_count || '0'),
+        activeCount: parseInt(stat?.active_count || '0'),
+        resolvedCount: parseInt(stat?.resolved_count || '0'),
+      };
+    });
 
     res.json({
       success: true,
       totalBets: parseInt(totalsResult.total_bets),
       activeBets: parseInt(totalsResult.active_bets),
       resolvedBets: parseInt(totalsResult.resolved_bets),
-      categoryStats,
+      categoryStats: categoryStatsMap,
     });
   } catch (error) {
     next(error);

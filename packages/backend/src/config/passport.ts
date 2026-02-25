@@ -40,7 +40,7 @@ export function setupPassport() {
               [googleId, avatarUrl, user.id]
             );
           } else {
-            // Create new user with 1000 starting coins
+            // Create new user with $1000 starting balance
             const userId = uuidv4();
             user = await queryOne(
               `INSERT INTO users (id, email, display_name, google_id, avatar_url, balance, last_login_at, created_at, updated_at)
@@ -51,7 +51,7 @@ export function setupPassport() {
             // Create welcome notification
             await query(
               `INSERT INTO notifications (id, user_id, type, title, message)
-               VALUES ($1, $2, 'WELCOME', 'Welcome to WeBet!', 'You have been awarded 1000 coins to start betting.')`,
+               VALUES ($1, $2, 'WELCOME', 'Welcome to WeBet!', 'You have been awarded $1,000.00 to start betting!')`,
               [uuidv4(), user.id]
             );
           }

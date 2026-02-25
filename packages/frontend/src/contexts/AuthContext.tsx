@@ -14,7 +14,10 @@ export interface Admin {
   id: string;
   email: string;
   name: string;
+  displayName?: string;
   role: string;
+  lastLoginAt?: string;
+  avatarUrl?: string;
 }
 
 interface AuthContextType {
@@ -25,6 +28,7 @@ interface AuthContextType {
   logout: () => void;
   adminLogin: (email: string, password: string) => Promise<void>;
   adminLogout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -64,8 +68,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           if (adminRes.ok) {
             const adminData = await adminRes.json();
-            setAdmin(adminData.data);
-            setUser(adminData.data);
+            const adminMapped = {
+              ...adminData.data,
+              name: adminData.data.displayName || adminData.data.name || adminData.data.email,
+            };
+            setAdmin(adminMapped);
+            setUser(adminMapped);
           }
         } catch {
           // No valid session
@@ -116,8 +124,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.success && data.data?.admin) {
-        setAdmin(data.data.admin);
-        setUser(data.data.admin); // Admin is also a user
+        const adminMapped = {
+          ...data.data.admin,
+          name: data.data.admin.displayName || data.data.admin.name || data.data.admin.email,
+        };
+        setAdmin(adminMapped);
+        setUser(adminMapped);
         router.push('/admin/dashboard');
       } else {
         throw new Error('Invalid response format');
@@ -143,8 +155,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.data);
+      }
+    } catch {}
+  };
+
   return (
-    <AuthContext.Provider value={{ user, admin, isLoading, login, logout, adminLogin, adminLogout }}>
+    <AuthContext.Provider value={{ user, admin, isLoading, login, logout, adminLogin, adminLogout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

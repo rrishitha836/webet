@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import AdminLayout from '@/components/admin/AdminLayout';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 
@@ -120,7 +121,7 @@ export default function CreateBetPage() {
       const result = await response.json();
       
       // Success - redirect to dashboard or bet page
-      alert('Bet created successfully!');
+      toast.success('Bet created successfully!');
       router.push('/admin/dashboard');
       
     } catch (err) {
@@ -139,16 +140,16 @@ export default function CreateBetPage() {
       
       <div className="p-8">
       {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+        <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6">
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors duration-300">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Title */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Title *
             </label>
             <input
@@ -157,14 +158,14 @@ export default function CreateBetPage() {
               value={formData.title}
               onChange={handleInputChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="e.g., Will Bitcoin reach $100,000 by end of 2026?"
             />
           </div>
 
           {/* Description */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Description *
             </label>
             <textarea
@@ -173,21 +174,21 @@ export default function CreateBetPage() {
               onChange={handleInputChange}
               required
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Detailed description of what this bet is about..."
             />
           </div>
 
           {/* Category */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Category *
             </label>
             <select
               name="category"
               value={formData.category}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               {categories.map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
@@ -197,7 +198,7 @@ export default function CreateBetPage() {
 
           {/* Close Time */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Close Time *
             </label>
             <input
@@ -206,13 +207,13 @@ export default function CreateBetPage() {
               value={formData.closeTime}
               onChange={handleInputChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
           {/* Resolution Criteria */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Resolution Criteria
             </label>
             <textarea
@@ -220,14 +221,14 @@ export default function CreateBetPage() {
               value={formData.resolutionCriteria}
               onChange={handleInputChange}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="How will this bet be resolved? What are the specific conditions for each outcome?"
             />
           </div>
 
           {/* Tags */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Tags (comma separated)
             </label>
             <input
@@ -235,14 +236,14 @@ export default function CreateBetPage() {
               name="tags"
               value={formData.tags}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="bitcoin, cryptocurrency, price"
             />
           </div>
 
           {/* Reference Links */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Reference Links (one per line)
             </label>
             <textarea
@@ -250,7 +251,7 @@ export default function CreateBetPage() {
               value={formData.referenceLinks}
               onChange={handleInputChange}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="https://example.com/relevant-article"
             />
           </div>
@@ -258,7 +259,7 @@ export default function CreateBetPage() {
 
         {/* Outcomes */}
         <div className="mt-6">
-          <label className="block text-sm font-medium text-gray-700 mb-3">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             Outcomes *
           </label>
           <div className="space-y-3">
@@ -268,7 +269,7 @@ export default function CreateBetPage() {
                   type="text"
                   value={outcome.label}
                   onChange={(e) => handleOutcomeChange(index, e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder={`Outcome ${index + 1}`}
                 />
                 {outcomes.length > 2 && (
